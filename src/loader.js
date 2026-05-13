@@ -1,6 +1,9 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import {
+  StreamableHTTPClientTransport,
+  StreamableHTTPError,
+} from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { log as logMessage, warn as logWarn, error as logError } from './log.js';
 import {
   callWsBridgeTool,
@@ -28,6 +31,62 @@ function cloneServerConfig(config) {
  */
 function serverConfigChanged(a, b) {
   return JSON.stringify(a) !== JSON.stringify(b);
+}
+
+function createHttpTransport(config) {
+  const opts = {};
+  if (config.httpHeaders && Object.keys(config.httpHeaders).length > 0) {
+    opts.requestInit = { headers: config.httpHeaders };
+  }
+  return new StreamableHTTPClientTransport(new URL(config.url), opts);
+}
+
+function createMcpClient(name) {
+  return new Client(
+    { name: `mcp-center-${name}`, version: '1.0.0' },
+    {}
+  );
+}
+
+function isSessionNotFoundError(error) {
+  return error instanceof StreamableHTTPError && error.code === 404;
+}
+
+async function reconnectHttpServer(server) {
+  if (!server.config?.url) {
+    return server;
+  }
+
+  try {
+    await server.client?.close();
+  } catch (error) {
+    logWarn(`[mcp-center] Error closing stale HTTP session for "${server.name}":`, error);
+  }
+
+  const transport = createHttpTransport(server.config);
+  const client = createMcpClient(server.config.name);
+  await client.connect(transport);
+
+  server.client = client;
+  server.transport = transport;
+  serverStatus.set(server.name, { status: 'connected' });
+  logMessage(`[mcp-center] Refreshed HTTP session for "${server.name}" after 404`);
+  return server;
+}
+
+async function runWithHttpSessionRefresh(server, operation) {
+  const hadSessionId = !!server.transport?.sessionId;
+
+  try {
+    return await operation(server);
+  } catch (error) {
+    if (server.type === 'wsBridge' || !server.config?.url || !hadSessionId || !isSessionNotFoundError(error)) {
+      throw error;
+    }
+
+    await reconnectHttpServer(server);
+    return operation(server);
+  }
 }
 
 /** @type {Map<string, {status: 'loading'|'connected'|'failed'|'disabled', error?: string}>} */
@@ -247,21 +306,13 @@ async function loadHttpServer(config) {
     throw new Error(`Server ${config.name}: url is required for HTTP transport`);
   }
 
-  const opts = {};
-  if (config.httpHeaders && Object.keys(config.httpHeaders).length > 0) {
-    opts.requestInit = { headers: config.httpHeaders };
-  }
-  const transport = new StreamableHTTPClientTransport(new URL(config.url), opts);
-
-  const client = new Client(
-    { name: `mcp-center-${config.name}`, version: '1.0.0' },
-    {}
-  );
+  const transport = createHttpTransport(config);
+  const client = createMcpClient(config.name);
 
   await client.connect(transport);
   const { tools, resources, resourceTemplates, prompts } = await loadServerCapabilities(client, config);
 
-  return { name: config.name, client, tools, resources, resourceTemplates, prompts };
+  return { name: config.name, client, transport, tools, resources, resourceTemplates, prompts };
 }
 
 /**
@@ -459,10 +510,10 @@ export async function callTool(toolName, args) {
         const result = await callWsBridgeTool(tool.serverName, tool.originalName, args);
         return result;
       }
-      const result = await server.client.callTool({
+      const result = await runWithHttpSessionRefresh(server, s => s.client.callTool({
         name: tool.originalName,
         arguments: args,
-      });
+      }));
       return result;
     }
   }
@@ -479,9 +530,9 @@ export async function readResource(uri) {
   for (const server of loadedServers.values()) {
     const resource = server.resources.find(r => r.uri === uri);
     if (resource) {
-      const result = await server.client.readResource({
+      const result = await runWithHttpSessionRefresh(server, s => s.client.readResource({
         uri: resource.originalUri,
-      });
+      }));
       return result;
     }
   }
@@ -495,7 +546,7 @@ export async function readResource(uri) {
     if (uri.startsWith(prefix) && server.resourceTemplates.length > 0) {
       const originalUri = uri.slice(prefix.length);
       try {
-        const result = await server.client.readResource({ uri: originalUri });
+        const result = await runWithHttpSessionRefresh(server, s => s.client.readResource({ uri: originalUri }));
         return result;
       } catch {
         // This server couldn't handle it, try next
@@ -516,10 +567,10 @@ export async function getPrompt(promptName, args) {
   for (const server of loadedServers.values()) {
     const prompt = server.prompts.find(p => p.name === promptName);
     if (prompt) {
-      const result = await server.client.getPrompt({
+      const result = await runWithHttpSessionRefresh(server, s => s.client.getPrompt({
         name: prompt.originalName,
         arguments: args,
-      });
+      }));
       return result;
     }
   }

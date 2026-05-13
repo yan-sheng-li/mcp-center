@@ -10,7 +10,7 @@ import { randomUUID } from 'crypto';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { loadServer, reloadServer, getAllTools, getServerStatus, closeAllServers } from '../src/loader.js';
+import { loadServer, reloadServer, getAllTools, getServerStatus, closeAllServers, callTool } from '../src/loader.js';
 
 const AUTH_TOKEN = 'test-secret-token';
 const AUTH_SERVER_PORT = 3201;
@@ -42,12 +42,32 @@ function startAuthHttpServer() {
     }
     const url = new URL(req.url, `http://localhost:${AUTH_SERVER_PORT}`);
     if (url.pathname === '/mcp' && req.method === 'POST') {
+      const chunks = [];
+      for await (const chunk of req) chunks.push(chunk);
+      const bodyStr = Buffer.concat(chunks).toString('utf-8');
+      const body = bodyStr ? JSON.parse(bodyStr) : undefined;
+      const sessionIdFromHeader = req.headers['mcp-session-id'];
+
+      if (sessionIdFromHeader) {
+        if (!sessions.has(sessionIdFromHeader)) {
+          res.writeHead(404); res.end('Session not found');
+          return;
+        }
+
+        const session = sessions.get(sessionIdFromHeader);
+        await session.transport.handleRequest(req, res, body);
+        if (body?.method === 'tools/call') {
+          sessions.delete(sessionIdFromHeader);
+        }
+        return;
+      }
+
       const sessionId = randomUUID();
       const mcpServer = makeMcp();
       const transport = new StreamableHTTPServerTransport('/mcp', sessionId);
       sessions.set(sessionId, { server: mcpServer, transport });
       await mcpServer.connect(transport);
-      await transport.handleRequest(req, res);
+      await transport.handleRequest(req, res, body);
       return;
     }
     if (url.pathname.startsWith('/mcp/') && req.method === 'POST') {
@@ -171,5 +191,26 @@ describe('Bug 4: in-place config mutation should still trigger reload', () => {
 
     expect(getAllTools().some(tool => tool.name === 'toggle-test_echo')).toBe(false);
     expect(getServerStatus().get('toggle-test').status).toBe('disabled');
+  });
+});
+
+describe('Bug 5: stale HTTP session refresh', () => {
+  test('re-initializes once and retries when an existing HTTP session returns 404', async () => {
+    const config = {
+      name: 'http-stale-session',
+      url: `http://localhost:${AUTH_SERVER_PORT}/mcp`,
+      httpHeaders: { Authorization: `Bearer ${AUTH_TOKEN}` },
+    };
+
+    await loadServer(config);
+
+    const first = await callTool('http-stale-session_ping', {});
+    expect(first.content[0].text).toBe('pong');
+
+    // The test server deletes a session after handling one request. The second
+    // call therefore sends a stale mcp-session-id first, receives 404, then
+    // should reconnect and retry once with a fresh session id.
+    const second = await callTool('http-stale-session_ping', {});
+    expect(second.content[0].text).toBe('pong');
   });
 });
