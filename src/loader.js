@@ -10,6 +10,7 @@ import {
   getWsBridgeTools,
   setWsBridgeCallbacks
 } from './wsBridge.js';
+import { recordCall } from './tracker.js';
 
 /** @type {Map<string, {name: string, client: Client, tools: Array, resources: Array, resourceTemplates: Array, prompts: Array, config: object}>} */
 const loadedServers = new Map();
@@ -503,18 +504,26 @@ export function getAllPrompts() {
  * @returns {Promise<any>}
  */
 export async function callTool(toolName, args) {
+  const startTime = Date.now();
   for (const server of loadedServers.values()) {
     const tool = server.tools.find(t => t.name === toolName);
     if (tool) {
-      if (server.type === 'wsBridge') {
-        const result = await callWsBridgeTool(tool.serverName, tool.originalName, args);
+      try {
+        let result;
+        if (server.type === 'wsBridge') {
+          result = await callWsBridgeTool(tool.serverName, tool.originalName, args);
+        } else {
+          result = await runWithHttpSessionRefresh(server, s => s.client.callTool({
+            name: tool.originalName,
+            arguments: args,
+          }));
+        }
+        recordCall({ type: 'tool', name: toolName, serverName: tool.serverName, arguments: args, status: 'success', durationMs: Date.now() - startTime });
         return result;
+      } catch (error) {
+        recordCall({ type: 'tool', name: toolName, serverName: tool.serverName, arguments: args, status: 'error', durationMs: Date.now() - startTime, errorMsg: error.message });
+        throw error;
       }
-      const result = await runWithHttpSessionRefresh(server, s => s.client.callTool({
-        name: tool.originalName,
-        arguments: args,
-      }));
-      return result;
     }
   }
   throw new Error(`Tool not found: ${toolName}`);
@@ -526,34 +535,49 @@ export async function callTool(toolName, args) {
  * @returns {Promise<any>}
  */
 export async function readResource(uri) {
+  const startTime = Date.now();
+  const getServerName = (u) => {
+    for (const s of loadedServers.values()) {
+      if (s.resources.find(r => r.uri === u)) return s.name;
+      const prefix = `${sanitizeServerName(s.name)}_`;
+      if (u.startsWith(prefix) && s.resourceTemplates.length > 0) return s.name;
+    }
+    return undefined;
+  };
+
   // First, try to match against static resources
   for (const server of loadedServers.values()) {
     const resource = server.resources.find(r => r.uri === uri);
     if (resource) {
-      const result = await runWithHttpSessionRefresh(server, s => s.client.readResource({
-        uri: resource.originalUri,
-      }));
-      return result;
+      try {
+        const result = await runWithHttpSessionRefresh(server, s => s.client.readResource({
+          uri: resource.originalUri,
+        }));
+        recordCall({ type: 'resource', name: uri, serverName: server.name, status: 'success', durationMs: Date.now() - startTime });
+        return result;
+      } catch (error) {
+        recordCall({ type: 'resource', name: uri, serverName: server.name, status: 'error', durationMs: Date.now() - startTime, errorMsg: error.message });
+        throw error;
+      }
     }
   }
 
   // If no static resource matched, try to match against resource templates.
-  // The aggregated URI has the format: `${serverName}_${originalUri}`.
-  // We find the server whose prefix matches, strip the prefix, and forward
-  // the original URI to the child server for resolution.
   for (const server of loadedServers.values()) {
     const prefix = `${sanitizeServerName(server.name)}_`;
     if (uri.startsWith(prefix) && server.resourceTemplates.length > 0) {
       const originalUri = uri.slice(prefix.length);
       try {
         const result = await runWithHttpSessionRefresh(server, s => s.client.readResource({ uri: originalUri }));
+        recordCall({ type: 'resource', name: uri, serverName: server.name, status: 'success', durationMs: Date.now() - startTime });
         return result;
-      } catch {
+      } catch (error) {
         // This server couldn't handle it, try next
       }
     }
   }
 
+  recordCall({ type: 'resource', name: uri, serverName: getServerName(uri), status: 'error', durationMs: Date.now() - startTime, errorMsg: `Resource not found: ${uri}` });
   throw new Error(`Resource not found: ${uri}`);
 }
 
@@ -564,14 +588,21 @@ export async function readResource(uri) {
  * @returns {Promise<any>}
  */
 export async function getPrompt(promptName, args) {
+  const startTime = Date.now();
   for (const server of loadedServers.values()) {
     const prompt = server.prompts.find(p => p.name === promptName);
     if (prompt) {
-      const result = await runWithHttpSessionRefresh(server, s => s.client.getPrompt({
-        name: prompt.originalName,
-        arguments: args,
-      }));
-      return result;
+      try {
+        const result = await runWithHttpSessionRefresh(server, s => s.client.getPrompt({
+          name: prompt.originalName,
+          arguments: args,
+        }));
+        recordCall({ type: 'prompt', name: promptName, serverName: server.name, arguments: args, status: 'success', durationMs: Date.now() - startTime });
+        return result;
+      } catch (error) {
+        recordCall({ type: 'prompt', name: promptName, serverName: server.name, arguments: args, status: 'error', durationMs: Date.now() - startTime, errorMsg: error.message });
+        throw error;
+      }
     }
   }
   throw new Error(`Prompt not found: ${promptName}`);

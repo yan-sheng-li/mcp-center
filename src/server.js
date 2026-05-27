@@ -31,6 +31,8 @@ import {
 } from './loader.js';
 import { loadConfig, watchConfig, getConfig, ensureDefaultConfig, unwatchConfig, saveConfig } from './config.js';
 import { createWsServer, closeWsBridgeServers, getWsBridgeServers } from './wsBridge.js';
+import { initTracker, closeTracker } from './tracker.js';
+import { handleStatsRoute } from './stats.js';
 
 let reloadInFlight = null;
 let reloadQueued = false;
@@ -369,6 +371,11 @@ async function runHttp(port) {
       return;
     }
 
+    // API: Stats routes
+    if (url.pathname.startsWith('/api/stats/') && handleStatsRoute(req, res, url.pathname)) {
+      return;
+    }
+
     // API: Get wsBridge servers (auto-registered, not in config)
     if (url.pathname === '/api/wsbridge/servers' && req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -417,12 +424,14 @@ async function runHttp(port) {
 
   createWsServer(httpServer);
   logError(`[mcp-center] WebSocket bridge listening at ws://localhost:${port}/ws/:serverName`);
+  logError(`[mcp-center] Stats API at http://localhost:${port}/api/stats/*`);
 
   const shutdown = async () => {
     logError('[mcp-center] Shutting down...');
     unwatchConfig();
     closeWsBridgeServers();
     await closeAllServers();
+    closeTracker();
     httpServer.close(() => process.exit(0));
   };
 
@@ -440,6 +449,9 @@ async function runHttp(port) {
 export async function runServer(configPath) {
   const path = configPath || ensureDefaultConfig();
   logError(`[mcp-center] Loading config from: ${path}`);
+
+  // Initialize usage tracker
+  initTracker();
 
   const config = loadConfig(path);
   logError(`[mcp-center] Loaded ${config.servers.length} server(s) from config`);
