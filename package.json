@@ -1,5 +1,5 @@
 {
-  "name": "@sunwu51/mcp-center",
+  "name": "@yan-sheng-li/mcp-center",
   "version": "1.0.11",
   "description": "MCP Server management tool that aggregates multiple MCP servers",
   "main": "src/index.js",
