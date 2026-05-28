@@ -875,22 +875,37 @@ export const UI_HTML = `<!DOCTYPE html>
 
       container.innerHTML = currentProfiles.map(p => {
         const isActive = p.name === currentActiveProfile;
-        return '<div class="profile-item' + (isActive ? ' active-profile' : '') + '">' +
+        const escaped = escHtml(p.name);
+        return '<div class="profile-item' + (isActive ? ' active-profile' : '') + '" data-profile="' + escaped + '">' +
           '<div class="profile-info">' +
-            '<div class="profile-name">' + escHtml(p.name) + (isActive ? ' <span class="active-tag">ACTIVE</span>' : '') + '</div>' +
+            '<div class="profile-name">' + escaped + (isActive ? ' <span class="active-tag">ACTIVE</span>' : '') + '</div>' +
             '<div class="profile-servers">' + (p.servers.length > 0 ? p.servers.map(s => '<span>' + escHtml(s) + '</span>').join('') : '<span style="color:#dc3545">No servers</span>') + '</div>' +
           '</div>' +
           '<div class="btn-group">' +
-            (!isActive ? '<button class="btn btn-success" onclick="activateProfileFromManager(\'' + escAttr(p.name) + '\')" style="padding:4px 10px;font-size:11px">Activate</button>' : '') +
-            '<button class="btn btn-primary" onclick="editProfileFromManager(\'' + escAttr(p.name) + '\')" style="padding:4px 10px;font-size:11px">Edit</button>' +
-            '<button class="btn btn-danger" onclick="deleteProfileFromManager(\'' + escAttr(p.name) + '\')" style="padding:4px 10px;font-size:11px">Delete</button>' +
+            (!isActive ? '<button class="btn btn-success" data-action="activate" style="padding:4px 10px;font-size:11px">Activate</button>' : '') +
+            '<button class="btn btn-primary" data-action="edit" style="padding:4px 10px;font-size:11px">Edit</button>' +
+            '<button class="btn btn-danger" data-action="delete" style="padding:4px 10px;font-size:11px">Delete</button>' +
           '</div>' +
         '</div>';
       }).join('');
+
+      // Wire up event delegation for profile manager buttons
+      container.querySelectorAll('.btn-group').forEach(group => {
+        group.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (!btn || !btn.dataset.action) return;
+          const item = btn.closest('.profile-item');
+          if (!item) return;
+          const name = item.dataset.profile;
+          if (btn.dataset.action === 'activate') activateProfileFromManager(name);
+          else if (btn.dataset.action === 'edit') editProfileFromManager(name);
+          else if (btn.dataset.action === 'delete') deleteProfileFromManager(name);
+        });
+      });
     }
 
     function escAttr(str) {
-      return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+      return String(str).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
     }
 
     async function activateProfileFromManager(name) {
