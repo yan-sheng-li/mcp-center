@@ -80,13 +80,77 @@ export const UI_HTML = `<!DOCTYPE html>
     .probe-item-desc { font-size: 12px; color: #888; }
     .enabled-tools-row { display: flex; align-items: center; gap: 8px; }
     .enabled-tools-row input { flex: 1; }
+    .profile-bar { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+    .profile-bar .label { font-size: 13px; font-weight: 600; color: #555; margin-right: 4px; }
+    .profile-bar select { width: auto; min-width: 160px; padding: 6px 10px; font-size: 13px; }
+    .profile-bar .active-tag { display: inline-block; padding: 2px 10px; background: #d4edda; color: #155724; border-radius: 3px; font-size: 11px; font-weight: 600; }
+    .profile-bar .btn { padding: 6px 12px; font-size: 12px; }
+    .profile-item { border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-bottom: 10px; background: #fafafa; display: flex; justify-content: space-between; align-items: center; }
+    .profile-item.active-profile { border-color: #28a745; background: #f0fff4; }
+    .profile-item .profile-info { flex: 1; }
+    .profile-item .profile-name { font-weight: 600; font-size: 15px; color: #333; }
+    .profile-item .profile-servers { font-size: 12px; color: #888; margin-top: 3px; }
+    .profile-item .profile-servers span { display: inline-block; padding: 1px 6px; background: #e8f4fd; color: #1a6fa8; border-radius: 3px; margin: 2px 2px; font-size: 11px; }
+    .profile-list { margin-top: 12px; }
+    .profile-select-group { display: flex; align-items: center; gap: 6px; margin-bottom: 15px; }
+    .profile-select-group label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 0; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>MCP Center</h1>
+
+    <!-- Profile Bar -->
+    <div class="profile-bar" id="profileBar">
+      <span class="label">Profile:</span>
+      <select id="profileSelect" onchange="onProfileSelectChange()">
+        <option value="">(None)</option>
+      </select>
+      <button class="btn btn-success" id="btnActivateProfile" onclick="activateSelectedProfile()" disabled>Activate</button>
+      <button class="btn btn-secondary" id="btnDeactivateProfile" onclick="deactivateCurrentProfile()" style="display:none">Deactivate</button>
+      <button class="btn btn-primary" onclick="openProfileModal()">+ New Profile</button>
+      <button class="btn btn-info" onclick="openProfileManager()">Manage</button>
+      <a href="/stats" style="margin-left:auto;font-size:12px;color:#6c757d;text-decoration:none;">Stats Dashboard</a>
+    </div>
+
     <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
     <div class="server-list" id="serverList"></div>
+  </div>
+
+  <!-- Profile Create/Edit Modal -->
+  <div id="profileModal" class="modal">
+    <div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <h2 id="profileModalTitle">Create Profile</h2>
+        <span class="close" onclick="closeProfileModal()">&times;</span>
+      </div>
+      <form onsubmit="saveProfile(event)">
+        <div class="form-group">
+          <label>Profile Name *</label>
+          <input type="text" id="profileName" required placeholder="e.g. Development, Writing">
+        </div>
+        <div class="form-group">
+          <label>Servers to Include</label>
+          <div id="profileServerCheckboxes" style="max-height:300px;overflow-y:auto;padding:8px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px"></div>
+          <div style="font-size:11px;color:#888;margin-top:4px">Select servers to include in this profile. Only selected servers will be enabled when the profile is activated.</div>
+        </div>
+        <div class="btn-group" style="margin-top:16px">
+          <button type="submit" class="btn btn-success" id="profileSaveBtn">Save Profile</button>
+          <button type="button" class="btn btn-secondary" onclick="closeProfileModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Profile Manager Modal -->
+  <div id="profileManagerModal" class="modal">
+    <div class="modal-content" style="max-width:600px">
+      <div class="modal-header">
+        <h2>Manage Profiles</h2>
+        <span class="close" onclick="closeProfileManager()">&times;</span>
+      </div>
+      <div id="profileList" class="profile-list"></div>
+    </div>
   </div>
 
   <div id="modal" class="modal">
@@ -153,6 +217,10 @@ export const UI_HTML = `<!DOCTYPE html>
     let editingIndex = -1;
     let listReloadTimer = null;
     let lastRenderedServersKey = '';
+    let currentProfiles = [];
+    let currentActiveProfile = null;
+    let editingProfileName = null;
+    let allServerNamesCache = [];
 
     async function loadServers() {
       const [serversRes, statusRes, wsBridgeRes] = await Promise.all([
@@ -643,6 +711,236 @@ export const UI_HTML = `<!DOCTYPE html>
       document.getElementById('stdioFields').classList.toggle('active', type === 'stdio');
     }
 
+    // ===== Profile Functions =====
+
+    async function loadProfiles() {
+      try {
+        const res = await fetch('/api/profiles');
+        const data = await res.json();
+        currentProfiles = data.profiles || [];
+        currentActiveProfile = data.active;
+        renderProfileBar();
+      } catch(e) {
+        console.error('Failed to load profiles:', e);
+      }
+    }
+
+    function renderProfileBar() {
+      const sel = document.getElementById('profileSelect');
+      const curVal = sel.value;
+      sel.innerHTML = '<option value="">(None)</option>';
+      currentProfiles.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.name;
+        opt.textContent = p.name + ' (' + p.servers.length + ' servers)';
+        if (p.name === currentActiveProfile) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      // Show/hide activate/deactivate buttons
+      const btnActivate = document.getElementById('btnActivateProfile');
+      const btnDeactivate = document.getElementById('btnDeactivateProfile');
+      btnActivate.disabled = !sel.value || sel.value === currentActiveProfile;
+      btnDeactivate.style.display = currentActiveProfile ? 'inline-block' : 'none';
+    }
+
+    function onProfileSelectChange() {
+      const sel = document.getElementById('profileSelect');
+      document.getElementById('btnActivateProfile').disabled = !sel.value || sel.value === currentActiveProfile;
+    }
+
+    async function activateSelectedProfile() {
+      const name = document.getElementById('profileSelect').value;
+      if (!name) return;
+      try {
+        const res = await fetch('/api/profiles/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('Error: ' + (data.error || 'Unknown error')); return; }
+        currentActiveProfile = name;
+        renderProfileBar();
+        loadServers();
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function deactivateCurrentProfile() {
+      try {
+        const res = await fetch('/api/profiles/deactivate', { method: 'POST' });
+        if (!res.ok) { const data = await res.json(); alert('Error: ' + (data.error || '')); return; }
+        currentActiveProfile = null;
+        renderProfileBar();
+        loadServers();
+      } catch(e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
+    async function openProfileModal(editName) {
+      editingProfileName = editName || null;
+      document.getElementById('profileModalTitle').textContent = editName ? 'Edit Profile' : 'Create Profile';
+      document.getElementById('profileName').value = editName || '';
+
+      // Fetch servers for checkboxes
+      const serversRes = await fetch('/api/servers');
+      const servers = await serversRes.json();
+      allServerNamesCache = servers.map(s => s.name);
+
+      // Get current servers if editing
+      let checkedServers = [];
+      if (editName) {
+        const profile = currentProfiles.find(p => p.name === editName);
+        if (profile) checkedServers = profile.servers;
+      }
+
+      const container = document.getElementById('profileServerCheckboxes');
+      if (servers.length === 0) {
+        container.innerHTML = '<div style="color:#999;font-size:13px;padding:8px">No servers configured. Add servers first.</div>';
+      } else {
+        container.innerHTML = servers.map(s => {
+          const checked = checkedServers.includes(s.name) ? 'checked' : '';
+          const enabled = s.enabled !== false;
+          return '<div class="probe-item" style="padding:6px 0">' +
+            '<input type="checkbox" class="profile-srv-cb" value="' + escHtml(s.name) + '" ' + checked + ' style="width:auto">' +
+            '<div><div class="probe-item-name">' + escHtml(s.name) + '</div>' +
+            '<div class="probe-item-desc">' + (enabled ? '' : '<span style="color:#dc3545">disabled</span> · ') + (s.url ? 'HTTP' : 'STDIO') + '</div></div></div>';
+        }).join('');
+      }
+
+      document.getElementById('profileModal').style.display = 'block';
+    }
+
+    function closeProfileModal() {
+      document.getElementById('profileModal').style.display = 'none';
+    }
+
+    async function saveProfile(e) {
+      e.preventDefault();
+      const name = document.getElementById('profileName').value.trim();
+      if (!name) { alert('Profile name is required'); return; }
+
+      const checkedServers = Array.from(document.querySelectorAll('.profile-srv-cb:checked')).map(cb => cb.value);
+
+      if (editingProfileName) {
+        // Update existing
+        try {
+          const res = await fetch('/api/profiles/' + encodeURIComponent(editingProfileName), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, servers: checkedServers })
+          });
+          const data = await res.json();
+          if (!res.ok) { alert('Error: ' + (data.error || 'Unknown error')); return; }
+          closeProfileModal();
+          await loadProfiles();
+          if (document.getElementById('profileManagerModal').style.display === 'block') {
+            renderProfileManager();
+          }
+        } catch(e) { alert('Error: ' + e.message); }
+      } else {
+        // Create new
+        try {
+          const res = await fetch('/api/profiles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, servers: checkedServers })
+          });
+          const data = await res.json();
+          if (!res.ok) { alert('Error: ' + (data.error || 'Unknown error')); return; }
+          closeProfileModal();
+          await loadProfiles();
+        } catch(e) { alert('Error: ' + e.message); }
+      }
+    }
+
+    async function openProfileManager() {
+      document.getElementById('profileManagerModal').style.display = 'block';
+      renderProfileManager();
+    }
+
+    function closeProfileManager() {
+      document.getElementById('profileManagerModal').style.display = 'none';
+    }
+
+    function renderProfileManager() {
+      const container = document.getElementById('profileList');
+      if (currentProfiles.length === 0) {
+        container.innerHTML = '<div style="text-align:center;color:#999;padding:30px">No profiles created yet. Click "+ New Profile" to create one.</div>';
+        return;
+      }
+
+      container.innerHTML = currentProfiles.map(p => {
+        const isActive = p.name === currentActiveProfile;
+        const escaped = escHtml(p.name);
+        return '<div class="profile-item' + (isActive ? ' active-profile' : '') + '" data-profile="' + escaped + '">' +
+          '<div class="profile-info">' +
+            '<div class="profile-name">' + escaped + (isActive ? ' <span class="active-tag">ACTIVE</span>' : '') + '</div>' +
+            '<div class="profile-servers">' + (p.servers.length > 0 ? p.servers.map(s => '<span>' + escHtml(s) + '</span>').join('') : '<span style="color:#dc3545">No servers</span>') + '</div>' +
+          '</div>' +
+          '<div class="btn-group">' +
+            (!isActive ? '<button class="btn btn-success" data-action="activate" style="padding:4px 10px;font-size:11px">Activate</button>' : '') +
+            '<button class="btn btn-primary" data-action="edit" style="padding:4px 10px;font-size:11px">Edit</button>' +
+            '<button class="btn btn-danger" data-action="delete" style="padding:4px 10px;font-size:11px">Delete</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+
+      // Wire up event delegation for profile manager buttons
+      container.querySelectorAll('.btn-group').forEach(group => {
+        group.addEventListener('click', (e) => {
+          const btn = e.target.closest('button');
+          if (!btn || !btn.dataset.action) return;
+          const item = btn.closest('.profile-item');
+          if (!item) return;
+          const name = item.dataset.profile;
+          if (btn.dataset.action === 'activate') activateProfileFromManager(name);
+          else if (btn.dataset.action === 'edit') editProfileFromManager(name);
+          else if (btn.dataset.action === 'delete') deleteProfileFromManager(name);
+        });
+      });
+    }
+
+    function escAttr(str) {
+      return String(str).replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    }
+
+    async function activateProfileFromManager(name) {
+      try {
+        const res = await fetch('/api/profiles/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert('Error: ' + (data.error || '')); return; }
+        currentActiveProfile = name;
+        renderProfileBar();
+        renderProfileManager();
+        loadServers();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    function editProfileFromManager(name) {
+      closeProfileManager();
+      openProfileModal(name);
+    }
+
+    async function deleteProfileFromManager(name) {
+      if (!confirm('Delete profile "' + name + '"?')) return;
+      try {
+        const res = await fetch('/api/profiles/' + encodeURIComponent(name), { method: 'DELETE' });
+        if (!res.ok) { const data = await res.json(); alert('Error: ' + (data.error || '')); return; }
+        await loadProfiles();
+        renderProfileManager();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    // ===== Init =====
+    loadProfiles();
     loadServers();
   </script>
 </body>

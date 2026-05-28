@@ -30,7 +30,7 @@ import {
   getLoadedServers,
   getServerStatus,
 } from './loader.js';
-import { loadConfig, watchConfig, getConfig, ensureDefaultConfig, unwatchConfig, saveConfig } from './config.js';
+import { loadConfig, watchConfig, getConfig, ensureDefaultConfig, unwatchConfig, saveConfig, getProfiles, getActiveProfile, createProfile, updateProfile, deleteProfile, activateProfile, deactivateProfile } from './config.js';
 import { createWsServer, closeWsBridgeServers, getWsBridgeServers } from './wsBridge.js';
 import { initTracker, closeTracker } from './tracker.js';
 import { handleStatsRoute } from './stats.js';
@@ -201,6 +201,20 @@ function triggerReloadAllServers() {
   scheduleReloadAllServers().catch((error) => {
     logError('[mcp-center] Background reload failed:', error);
   });
+}
+
+/**
+ * Send a JSON response
+ * @param {import('http').ServerResponse} res
+ * @param {number} statusCode
+ * @param {*} data
+ */
+function respondJson(res, statusCode, data) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+  });
+  res.end(JSON.stringify(data));
 }
 
 
@@ -375,6 +389,85 @@ async function runHttp(port) {
       } catch (error) {
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: error.message }));
+      }
+      return;
+    }
+
+    // API: Profile routes
+    if (url.pathname === '/api/profiles' && req.method === 'GET') {
+      const profiles = getProfiles();
+      const active = getActiveProfile();
+      respondJson(res, 200, { profiles, active });
+      return;
+    }
+
+    if (url.pathname === '/api/profiles' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { name, servers } = JSON.parse(body);
+          const profile = createProfile(name, servers || []);
+          respondJson(res, 201, profile);
+        } catch (error) {
+          respondJson(res, 400, { error: error.message });
+        }
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/profiles/activate' && req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { name } = JSON.parse(body);
+          const result = activateProfile(name);
+          triggerReloadAllServers();
+          logError(`[mcp-center] Activated profile "${name}": ${result.activated.length} enabled, ${result.disabled.length} disabled`);
+          respondJson(res, 200, result);
+        } catch (error) {
+          respondJson(res, 400, { error: error.message });
+        }
+      });
+      return;
+    }
+
+    if (url.pathname === '/api/profiles/deactivate' && req.method === 'POST') {
+      try {
+        deactivateProfile();
+        triggerReloadAllServers();
+        logError('[mcp-center] Deactivated profile, all servers enabled');
+        respondJson(res, 200, { success: true });
+      } catch (error) {
+        respondJson(res, 400, { error: error.message });
+      }
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/profiles/') && req.method === 'PUT') {
+      const profileName = decodeURIComponent(url.pathname.split('/')[3]);
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const updates = JSON.parse(body);
+          const profile = updateProfile(profileName, updates);
+          respondJson(res, 200, profile);
+        } catch (error) {
+          respondJson(res, 400, { error: error.message });
+        }
+      });
+      return;
+    }
+
+    if (url.pathname.startsWith('/api/profiles/') && req.method === 'DELETE') {
+      const profileName = decodeURIComponent(url.pathname.split('/')[3]);
+      try {
+        deleteProfile(profileName);
+        respondJson(res, 200, { success: true });
+      } catch (error) {
+        respondJson(res, 400, { error: error.message });
       }
       return;
     }
