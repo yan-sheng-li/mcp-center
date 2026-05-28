@@ -30,13 +30,15 @@ import {
   getLoadedServers,
   getServerStatus,
 } from './loader.js';
-import { loadConfig, watchConfig, getConfig, ensureDefaultConfig, unwatchConfig, saveConfig, getProfiles, getActiveProfile, createProfile, updateProfile, deleteProfile, activateProfile, deactivateProfile } from './config.js';
+import { loadConfig, watchConfig, getConfig, ensureDefaultConfig, unwatchConfig, saveConfig, getDefaultConfigPath, getProfiles, getActiveProfile, createProfile, updateProfile, deleteProfile, activateProfile, deactivateProfile } from './config.js';
 import { createWsServer, closeWsBridgeServers, getWsBridgeServers } from './wsBridge.js';
 import { initTracker, closeTracker } from './tracker.js';
 import { handleStatsRoute } from './stats.js';
+import { exportBackup, importBackup, parseMultipartFile } from './backup.js';
 
 let reloadInFlight = null;
 let reloadQueued = false;
+let serverConfigPath = null;
 
 /**
  * Create an MCP Server instance with tool handlers
@@ -466,6 +468,34 @@ async function runHttp(port) {
       try {
         deleteProfile(profileName);
         respondJson(res, 200, { success: true });
+} catch (error) {
+        respondJson(res, 400, { error: error.message });
+      }
+      return;
+    }
+
+    // API: Backup export
+    if (url.pathname === '/api/backup/export' && req.method === 'GET') {
+      exportBackup(res);
+      return;
+    }
+
+    // API: Backup import
+    if (url.pathname === '/api/backup/import' && req.method === 'POST') {
+      try {
+        const { filename, data } = await parseMultipartFile(req);
+        logError(`[mcp-center] Importing backup: ${filename} (${data.length} bytes)`);
+        const result = await importBackup(data, () => {
+          // Reload config from file after import
+          try {
+            const configFilePath = serverConfigPath || getDefaultConfigPath();
+            loadConfig(configFilePath);
+            triggerReloadAllServers();
+          } catch (err) {
+            logError('[mcp-center] Failed to reload after backup import:', err);
+          }
+        });
+        respondJson(res, 200, { success: true, ...result });
       } catch (error) {
         respondJson(res, 400, { error: error.message });
       }
@@ -550,6 +580,7 @@ async function runHttp(port) {
  */
 export async function runServer(configPath) {
   const path = configPath || ensureDefaultConfig();
+  serverConfigPath = path;
   logError(`[mcp-center] Loading config from: ${path}`);
 
   // Initialize usage tracker
