@@ -151,7 +151,7 @@ export async function importBackup(zipBuffer, reloadCallback) {
 export async function extractZip(zipPath, outDir) {
   const { readFileSync, writeFileSync: writeF, mkdirSync: mkDir, existsSync: ex } = await import('fs');
   const { join: j } = await import('path');
-  const { inflateSync } = await import('zlib');
+  const { inflateRawSync } = await import('zlib');
 
   const buf = readFileSync(zipPath);
   if (!ex(outDir)) mkDir(outDir, { recursive: true });
@@ -159,6 +159,21 @@ export async function extractZip(zipPath, outDir) {
   // Parse ZIP local file headers
   const extracted = [];
   let offset = 0;
+
+  // Helper: find the next PK signature starting from a given offset
+  function findNextSignature(from) {
+    const signatures = [
+      Buffer.from([0x50, 0x4B, 0x03, 0x04]),  // local header
+      Buffer.from([0x50, 0x4B, 0x01, 0x02]),  // central dir
+      Buffer.from([0x50, 0x4B, 0x05, 0x06]),  // EOCD
+    ];
+    let earliest = buf.length;
+    for (const sig of signatures) {
+      const idx = buf.indexOf(sig, from);
+      if (idx !== -1 && idx < earliest) earliest = idx;
+    }
+    return earliest;
+  }
 
   while (offset < buf.length - 4) {
     // Check for local file header signature: PK\x03\x04
@@ -168,16 +183,35 @@ export async function extractZip(zipPath, outDir) {
 
     // Parse local file header (30 bytes + variable)
     const compressionMethod = buf.readUInt16LE(offset + 8);
-    const compressedSize = buf.readUInt32LE(offset + 18);
-    const uncompressedSize = buf.readUInt32LE(offset + 22);
+    let compressedSize = buf.readUInt32LE(offset + 18);
     const fileNameLength = buf.readUInt16LE(offset + 26);
     const extraFieldLength = buf.readUInt16LE(offset + 28);
 
     const fileName = buf.toString('utf-8', offset + 30, offset + 30 + fileNameLength);
     const dataOffset = offset + 30 + fileNameLength + extraFieldLength;
-    const compressedData = buf.subarray(dataOffset, dataOffset + compressedSize);
 
-    offset = dataOffset + compressedSize;
+    // Handle data descriptors (compressedSize=0 in local header)
+    let compressedData;
+    if (compressedSize === 0) {
+      // Look for data descriptor signature after the file data
+      const dataDescSig = Buffer.from([0x50, 0x4B, 0x07, 0x08]);
+      const dataDescPos = buf.indexOf(dataDescSig, dataOffset);
+      if (dataDescPos !== -1) {
+        // Data descriptor: sig(4) + crc32(4) + compressedSize(4) + uncompressedSize(4) = 16 bytes
+        compressedSize = buf.readUInt32LE(dataDescPos + 8);
+        compressedData = buf.subarray(dataOffset, dataDescPos);
+        offset = dataDescPos + 16;
+      } else {
+        // Fallback: use gap to next known signature
+        const nextSig = findNextSignature(dataOffset);
+        compressedSize = nextSig - dataOffset;
+        compressedData = buf.subarray(dataOffset, nextSig);
+        offset = nextSig;
+      }
+    } else {
+      compressedData = buf.subarray(dataOffset, dataOffset + compressedSize);
+      offset = dataOffset + compressedSize;
+    }
 
     // Skip directories, hidden files (macOS __MACOSX)
     if (fileName.endsWith('/') || fileName.startsWith('__MACOSX') || fileName.startsWith('.')) {
@@ -191,7 +225,7 @@ export async function extractZip(zipPath, outDir) {
       fileData = compressedData;
     } else if (compressionMethod === 8) {
       // DEFLATED
-      fileData = inflateSync(compressedData);
+      fileData = inflateRawSync(compressedData);
     } else {
       logError(`[mcp-center] Unsupported compression method ${compressionMethod} for ${fileName}, skipping`);
       continue;
