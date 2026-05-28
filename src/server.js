@@ -2,9 +2,10 @@
 
 import { createServer as createHttpServer } from 'http';
 import { randomUUID } from 'crypto';
-import { UI_HTML } from './ui.js';
-import { DASHBOARD_HTML } from './dashboard.js';
+import { readFileSync } from 'fs';
 import { warn as logWarn, error as logError } from './log.js';
+const UI_HTML = readFileSync(new URL('./ui/index.html', import.meta.url), 'utf-8');
+const DASHBOARD_HTML = readFileSync(new URL('./dashboard/index.html', import.meta.url), 'utf-8');
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import {

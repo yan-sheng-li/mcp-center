@@ -1,4 +1,4 @@
-export const UI_HTML = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -125,10 +125,8 @@ export const UI_HTML = `<!DOCTYPE html>
     <div class="btn-group" style="margin-bottom:20px">
       <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
       <button class="btn btn-info" onclick="exportBackup()">Export Backup</button>
-      <label class="btn btn-secondary" style="cursor:pointer">
-        Import Backup
-        <input type="file" accept=".zip" style="display:none" onchange="importBackup(this)">
-      </label>
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('backupFileInput').click()">Import Backup</button>
+      <input type="file" id="backupFileInput" accept=".zip" style="display:none" onchange="importBackup(this)">
       <a href="/stats" class="btn btn-secondary" style="text-decoration:none;color:white">Stats Dashboard</a>
     </div>
     <div class="server-list" id="serverList"></div>
@@ -148,8 +146,8 @@ export const UI_HTML = `<!DOCTYPE html>
         </div>
         <div class="form-group">
           <label>Servers to Include</label>
-          <div id="profileServerCheckboxes" style="max-height:300px;overflow-y:auto;padding:8px;background:#f8f9fa;border:1px solid #dee2e6;border-radius:4px"></div>
-          <div style="font-size:11px;color:#888;margin-top:4px">Select servers to include in this profile. Only selected servers will be enabled when the profile is activated.</div>
+          <div id="profileServerCheckboxes" style="max-height:300px;overflow-y:auto;padding:8px;background:#0f1923;border:1px solid #2a3a4a;border-radius:4px"></div>
+          <div style="font-size:11px;color:#5a6b7d;margin-top:4px">Select servers to include in this profile. Only selected servers will be enabled when the profile is activated.</div>
         </div>
         <div class="btn-group" style="margin-top:16px">
           <button type="submit" class="btn btn-success" id="profileSaveBtn">Save Profile</button>
@@ -998,4 +996,4 @@ export const UI_HTML = `<!DOCTYPE html>
     }
   </script>
 </body>
-</html>`;
+</html>
