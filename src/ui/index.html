@@ -125,10 +125,8 @@
     <div class="btn-group" style="margin-bottom:20px">
       <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
       <button class="btn btn-info" onclick="exportBackup()">Export Backup</button>
-      <label class="btn btn-secondary" style="cursor:pointer">
-        Import Backup
-        <input type="file" accept=".zip" style="display:none" onchange="importBackup(this)">
-      </label>
+      <button type="button" class="btn btn-secondary" onclick="document.getElementById('backupFileInput').click()">Import Backup</button>
+      <input type="file" id="backupFileInput" accept=".zip" style="display:none" onchange="importBackup(this)">
       <a href="/stats" class="btn btn-secondary" style="text-decoration:none;color:white">Stats Dashboard</a>
     </div>
     <div class="server-list" id="serverList"></div>
