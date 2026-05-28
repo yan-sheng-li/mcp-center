@@ -110,10 +110,17 @@ export const UI_HTML = `<!DOCTYPE html>
       <button class="btn btn-secondary" id="btnDeactivateProfile" onclick="deactivateCurrentProfile()" style="display:none">Deactivate</button>
       <button class="btn btn-primary" onclick="openProfileModal()">+ New Profile</button>
       <button class="btn btn-info" onclick="openProfileManager()">Manage</button>
-      <a href="/stats" style="margin-left:auto;font-size:12px;color:#6c757d;text-decoration:none;">Stats Dashboard</a>
     </div>
 
-    <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
+    <div class="btn-group" style="margin-bottom:20px">
+      <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
+      <button class="btn btn-info" onclick="exportBackup()">Export Backup</button>
+      <label class="btn btn-secondary" style="cursor:pointer">
+        Import Backup
+        <input type="file" accept=".zip" style="display:none" onchange="importBackup(this)">
+      </label>
+      <a href="/stats" class="btn btn-secondary" style="text-decoration:none;color:white">Stats Dashboard</a>
+    </div>
     <div class="server-list" id="serverList"></div>
   </div>
 
@@ -942,6 +949,43 @@ export const UI_HTML = `<!DOCTYPE html>
     // ===== Init =====
     loadProfiles();
     loadServers();
+
+    // ===== Backup Functions =====
+
+    function exportBackup() {
+      window.location.href = '/api/backup/export';
+    }
+
+    async function importBackup(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      if (!confirm('Importing a backup will OVERWRITE your current config and stats data. Are you sure?')) {
+        input.value = '';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/backup/import', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) {
+          alert('Import failed: ' + (data.error || 'Unknown error'));
+          input.value = '';
+          return;
+        }
+        const parts = [];
+        if (data.config) parts.push('config');
+        if (data.stats) parts.push('stats database');
+        alert('Backup imported successfully! Restored: ' + parts.join(', ') + '. Page will reload.');
+        window.location.reload();
+      } catch(e) {
+        alert('Import failed: ' + e.message);
+      }
+      input.value = '';
+    }
   </script>
 </body>
 </html>`;

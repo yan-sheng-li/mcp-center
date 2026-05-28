@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
+    "archiver": "^5.3.2",
     "better-sqlite3": "^12.10.0",
     "ws": "^8.20.0"
   },
