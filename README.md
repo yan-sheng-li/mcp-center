@@ -28,7 +28,7 @@ To avoid collisions, every exposed capability is prefixed with the child server 
 
 Run MCP Center directly with `npx`, then connect your MCP client to the HTTP endpoint it starts:
 
-1. Start `mcp-center` with `npx @sunwu51/mcp-center`
+1. Start `mcp-center` with `npx @yan-sheng-li/mcp-center`
 2. Open the Web UI to add or edit HTTP/stdio child MCP servers
 3. Optionally let remote/local agents connect as WebSocket bridge clients
 4. Point your MCP client at `http://localhost:3000/mcp`
@@ -38,7 +38,7 @@ Run MCP Center directly with `npx`, then connect your MCP client to the HTTP end
 ### 1. Start MCP Center
 
 ```bash
-npx @sunwu51/mcp-center
+npx @yan-sheng-li/mcp-center
 ```
 
 This command executes the package's CLI entry directly. No global install is required.
@@ -54,13 +54,13 @@ By default it uses `~/.mcp-center/mcp.json`. If the file does not exist, it will
 You can also pass a custom config path:
 
 ```bash
-npx @sunwu51/mcp-center --config /path/to/mcp.json
+npx @yan-sheng-li/mcp-center --config /path/to/mcp.json
 ```
 
 Or:
 
 ```bash
-npx @sunwu51/mcp-center /path/to/mcp.json
+npx @yan-sheng-li/mcp-center /path/to/mcp.json
 ```
 
 ### 2. Open the Web UI
@@ -91,6 +91,72 @@ http://localhost:3000/mcp
 ```
 
 Your MCP client must support Streamable HTTP transport.
+
+## Server Profiles
+
+MCP Center supports **server profiles** for scene-based switching. Create profiles to define which servers are enabled for different use cases:
+
+- Create a profile with a subset of servers (e.g., "Writing" profile with only docs/search tools)
+- Quickly switch between profiles without manually toggling individual servers
+- Useful when you need different server combinations for different tasks
+
+### Profile Operations
+
+From the Web UI (http://localhost:3000/ui):
+
+- Click "+ New Profile" to create a profile and select which servers to include
+- Click "Manage Profiles" to edit, delete, or activate/deactivate profiles
+- Click the profile dropdown to quickly switch between profiles
+
+### Profile API
+
+- `GET /api/profiles` - list all profiles and active profile
+- `POST /api/profiles` - create a new profile
+- `PUT /api/profiles/:name` - update a profile
+- `DELETE /api/profiles/:name` - delete a profile
+- `POST /api/profiles/activate` - activate a profile (enables only selected servers)
+- `POST /api/profiles/deactivate` - deactivate profile (enable all servers)
+
+## Backup & Restore
+
+MCP Center supports exporting and restoring your configuration and usage data:
+
+- Export a ZIP backup containing `mcp.json` and `stats.db`
+- Import a backup ZIP to restore configuration
+- Useful for migrating to a new machine or backing up before major changes
+
+### Backup Operations
+
+From the Web UI (http://localhost:3000/ui):
+
+- Click "Backup" to download a timestamped ZIP backup
+- Click "Restore" to upload and restore from a backup ZIP
+
+### Backup API
+
+- `GET /api/backup/export` - download backup ZIP
+- `POST /api/backup/import` - upload and restore from ZIP
+
+## Statistics Dashboard
+
+MCP Center tracks tool usage and provides a visual dashboard:
+
+- Overview of total calls, unique tools, and active servers
+- Per-tool usage statistics and call counts
+- Timeline chart showing usage over time
+- Recent call history
+
+### Access Dashboard
+
+Open `http://localhost:3000/dashboard` to view the statistics dashboard with ECharts visualizations.
+
+### Stats API
+
+- `GET /api/stats/overview` - overview statistics (total calls, unique tools, active servers)
+- `GET /api/stats/tools` - per-tool usage statistics
+- `GET /api/stats/timeline` - usage over time
+- `GET /api/stats/recent` - recent call history
+- Optional `?period=24h|7d|30d` query parameter (default: 24h)
 
 ## WebSocket Bridge
 
@@ -443,7 +509,7 @@ If you want to launch MCP Center from another tool or script, use the same `npx`
   "command": "npx",
   "args": [
     "-y",
-    "@sunwu51/mcp-center"
+    "@yan-sheng-li/mcp-center"
   ]
 }
 ```
@@ -462,6 +528,24 @@ The Web UI uses these routes:
 - `GET /api/wsbridge/servers`: list currently connected WebSocket bridge servers
 - `POST /api/probe`: temporarily connect to a server config and inspect capabilities before saving
 
+Profile API:
+- `GET /api/profiles`: list all profiles and active profile
+- `POST /api/profiles`: create a new profile
+- `PUT /api/profiles/:name`: update a profile
+- `DELETE /api/profiles/:name`: delete a profile
+- `POST /api/profiles/activate`: activate a profile
+- `POST /api/profiles/deactivate`: deactivate profile
+
+Backup API:
+- `GET /api/backup/export`: download backup ZIP
+- `POST /api/backup/import`: upload and restore from ZIP
+
+Stats API:
+- `GET /api/stats/overview`: overview statistics
+- `GET /api/stats/tools`: per-tool usage statistics
+- `GET /api/stats/timeline`: usage over time
+- `GET /api/stats/recent`: recent call history
+
 ## Runtime Behavior
 
 - Default port is `3000`
@@ -477,14 +561,14 @@ The Web UI uses these routes:
 Example:
 
 ```bash
-PORT=8080 npx @sunwu51/mcp-center
+PORT=8080 npx @yan-sheng-li/mcp-center
 ```
 
 PowerShell:
 
 ```powershell
 $env:PORT=8080
-npx @sunwu51/mcp-center
+npx @yan-sheng-li/mcp-center
 ```
 
 ## Development
