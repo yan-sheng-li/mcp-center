@@ -4,225 +4,134 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MCP Center - Server Management</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1923; color: #e0e6ed; padding: 20px; min-height: 100vh; }
-    .container { max-width: 1600px; margin: 0 auto; background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 24px; }
-    h1 { color: #fff; margin-bottom: 24px; font-size: 24px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
-    .btn { padding: 7px 14px; border-radius: 4px; font-size: 13px; border: 1px solid #2a3a4a; background: #1a2a3a; color: #e0e6ed; cursor: pointer; transition: all 0.2s; }
-    .btn:hover { border-color: #4fc3f7; background: #243545; }
-    .btn-primary { background: #1a2a3a; color: #4fc3f7; border-color: #2a3a4a; }
-    .btn-primary:hover { background: #243545; border-color: #4fc3f7; }
-    .btn-danger { background: #1a2a3a; color: #ef5350; border-color: #2a3a4a; }
-    .btn-danger:hover { background: #243545; border-color: #ef5350; }
-    .btn-success { background: #1a2a3a; color: #66bb6a; border-color: #2a3a4a; }
-    .btn-success:hover { background: #243545; border-color: #66bb6a; }
-    .btn-secondary { background: #1a2a3a; color: #8a9bb5; border-color: #2a3a4a; }
-    .btn-secondary:hover { background: #243545; border-color: #8a9bb5; }
-    .btn-info { background: #1a2a3a; color: #ab47bc; border-color: #2a3a4a; }
-    .btn-info:hover { background: #243545; border-color: #ab47bc; }
-    .btn:disabled { opacity: 0.65; cursor: not-allowed; }
-    .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 4px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .toggle-wrap { display: flex; align-items: center; gap: 6px; }
-    .toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2a3a4a; border-radius: 22px; transition: 0.2s; }
-    .toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #8a9bb5; border-radius: 50%; transition: 0.2s; }
-    .toggle input:checked + .toggle-slider { background: #0288d1; }
-    .toggle input:checked + .toggle-slider:before { transform: translateX(18px); background: #fff; }
-    .toggle input:disabled + .toggle-slider { opacity: 0.5; cursor: not-allowed; }
-    .server-item.disabled-server { opacity: 0.55; }
-    .server-list { margin-top: 20px; }
-    .server-item { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 20px; margin-bottom: 16px; position: relative; overflow: hidden; }
-    .server-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #4fc3f7, #0288d1); }
-    .server-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .server-name { font-weight: 600; font-size: 17px; color: #fff; }
-    .server-type { display: inline-block; padding: 3px 7px; border-radius: 3px; font-size: 11px; margin-left: 8px; }
-    .type-http { background: rgba(79, 195, 247, 0.15); color: #4fc3f7; }
-    .type-stdio { background: rgba(102, 187, 106, 0.15); color: #66bb6a; }
-    .type-wsbridge { background: rgba(171, 71, 188, 0.15); color: #ab47bc; }
-    .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 11px; margin-left: 8px; }
-    .status-connected { background: rgba(102, 187, 106, 0.15); color: #66bb6a; }
-    .status-failed { background: rgba(239, 83, 80, 0.15); color: #ef5350; }
-    .status-loading { background: rgba(255, 167, 38, 0.15); color: #ffa726; }
-    .error-msg { font-size: 12px; color: #ef5350; margin-top: 4px; background: rgba(239, 83, 80, 0.15); padding: 4px 8px; border-radius: 3px; }
-    .server-details { font-size: 13px; color: #8a9bb5; margin-top: 4px; }
-    .caps-section { margin-top: 10px; border-top: 1px solid #2a3a4a; padding-top: 10px; }
-    .caps-group { margin-bottom: 8px; }
-    .caps-label { font-size: 12px; font-weight: 600; color: #8a9bb5; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .caps-list { display: flex; flex-wrap: wrap; gap: 4px; }
-    .cap-tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 12px; font-family: monospace; }
-    .cap-tool { background: rgba(79, 195, 247, 0.15); color: #4fc3f7; border: 1px solid rgba(79, 195, 247, 0.3); }
-    .cap-resource { background: rgba(255, 167, 38, 0.15); color: #ffa726; border: 1px solid rgba(255, 167, 38, 0.3); }
-    .cap-template { background: rgba(171, 71, 188, 0.15); color: #ab47bc; border: 1px solid rgba(171, 71, 188, 0.3); }
-    .cap-prompt { background: rgba(102, 187, 106, 0.15); color: #66bb6a; border: 1px solid rgba(102, 187, 106, 0.3); }
-    .cap-desc { font-size: 11px; color: #5a6b7d; margin-left: 4px; }
-    .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: 500; color: #8a9bb5; font-size: 14px; }
-    input, select, textarea { width: 100%; padding: 8px; border: 1px solid #2a3a4a; border-radius: 4px; font-size: 14px; background: #0f1923; color: #e0e6ed; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: #4fc3f7; }
-    textarea { min-height: 80px; font-family: monospace; }
-    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 25, 35, 0.9); z-index: 1000; }
-    .modal-content { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; margin: 40px auto; padding: 28px; border-radius: 8px; max-width: 640px; max-height: 85vh; overflow-y: auto; }
-    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .close { font-size: 28px; cursor: pointer; color: #5a6b7d; line-height: 1; }
-    .close:hover { color: #e0e6ed; }
-    .type-fields { display: none; }
-    .type-fields.active { display: block; }
-    .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
-    .probe-section { margin-top: 10px; padding: 12px; background: #0f1923; border-radius: 4px; border: 1px solid #2a3a4a; }
-    .probe-section h4 { font-size: 13px; color: #8a9bb5; margin-bottom: 8px; }
-    .probe-loading { color: #ffa726; font-size: 13px; }
-    .probe-error { color: #ef5350; font-size: 13px; background: rgba(239, 83, 80, 0.15); padding: 6px 10px; border-radius: 3px; }
-    .probe-group { margin-bottom: 10px; }
-    .probe-group-label { font-size: 12px; font-weight: 600; color: #8a9bb5; text-transform: uppercase; margin-bottom: 5px; }
-    .probe-item { display: flex; align-items: flex-start; gap: 6px; padding: 3px 0; }
-    .probe-item input[type=checkbox] { width: auto; margin-top: 2px; flex-shrink: 0; }
-    .probe-item-name { font-family: monospace; font-size: 13px; color: #e0e6ed; }
-    .probe-item-desc { font-size: 12px; color: #5a6b7d; }
-    .enabled-tools-row { display: flex; align-items: center; gap: 8px; }
-    .enabled-tools-row input { flex: 1; }
-    .profile-bar { display: flex; align-items: center; gap: 10px; padding: 14px 18px; background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-    .profile-bar .label { font-size: 13px; font-weight: 600; color: #8a9bb5; margin-right: 4px; }
-    .profile-bar select { width: auto; min-width: 160px; padding: 6px 10px; font-size: 13px; }
-    .profile-bar .active-tag { display: inline-block; padding: 2px 10px; background: rgba(102, 187, 106, 0.15); color: #66bb6a; border-radius: 3px; font-size: 11px; font-weight: 600; }
-    .profile-bar .btn { padding: 6px 12px; font-size: 12px; }
-    .profile-item { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 14px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; position: relative; overflow: hidden; }
-    .profile-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #4fc3f7, #0288d1); }
-    .profile-item.active-profile { border-color: #66bb6a; }
-    .profile-item.active-profile::before { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
-    .profile-item .profile-info { flex: 1; }
-    .profile-item .profile-name { font-weight: 600; font-size: 15px; color: #fff; }
-    .profile-item .profile-servers { font-size: 12px; color: #5a6b7d; margin-top: 3px; }
-    .profile-item .profile-servers span { display: inline-block; padding: 1px 6px; background: rgba(79, 195, 247, 0.15); color: #4fc3f7; border-radius: 3px; margin: 2px 2px; font-size: 11px; }
-    .profile-list { margin-top: 12px; }
-    .profile-select-group { display: flex; align-items: center; gap: 6px; margin-bottom: 15px; }
-    .profile-select-group label { font-size: 13px; font-weight: 600; color: #8a9bb5; margin-bottom: 0; }
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f1923; }
     ::-webkit-scrollbar-thumb { background: #2a3a4a; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #3a4a5a; }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h1>MCP Center</h1>
+<body class="bg-slate-900 text-slate-200 p-5 min-h-screen font-sans">
+  <div class="max-w-[1600px] mx-auto bg-slate-800 border border-slate-700 rounded-lg p-6">
+
+    <h1 class="text-white text-2xl font-semibold flex items-center gap-2.5 mb-6">MCP Center</h1>
 
     <!-- Profile Bar -->
-    <div class="profile-bar" id="profileBar">
-      <span class="label">Profile:</span>
-      <select id="profileSelect" onchange="onProfileSelectChange()">
+    <div class="flex items-center gap-2.5 p-3.5 bg-slate-800 border border-slate-700 rounded-lg mb-5 flex-wrap" id="profileBar">
+      <span class="text-xs font-semibold text-slate-400 mr-1">Profile:</span>
+      <select id="profileSelect" onchange="onProfileSelectChange()" class="w-auto min-w-[160px] px-2.5 py-1.5 text-xs bg-slate-900 border border-slate-700 rounded text-slate-200 focus:border-cyan-400 focus:outline-none">
         <option value="">(None)</option>
       </select>
-      <button class="btn btn-success" id="btnActivateProfile" onclick="activateSelectedProfile()" disabled>Activate</button>
-      <button class="btn btn-secondary" id="btnDeactivateProfile" onclick="deactivateCurrentProfile()" style="display:none">Deactivate</button>
-      <button class="btn btn-primary" onclick="openProfileModal()">+ New Profile</button>
-      <button class="btn btn-info" onclick="openProfileManager()">Manage</button>
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-green-400 border-slate-700 hover:bg-slate-700 hover:border-green-400 disabled:opacity-65 disabled:cursor-not-allowed" id="btnActivateProfile" onclick="activateSelectedProfile()" disabled>Activate</button>
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:border-slate-400 hidden" id="btnDeactivateProfile" onclick="deactivateCurrentProfile()">Deactivate</button>
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-cyan-400 border-slate-700 hover:bg-slate-700 hover:border-cyan-400" onclick="openProfileModal()">+ New Profile</button>
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-purple-400 border-slate-700 hover:bg-slate-700 hover:border-purple-400" onclick="openProfileManager()">Manage</button>
     </div>
 
-    <div class="btn-group" style="margin-bottom:20px">
-      <button class="btn btn-primary" onclick="openAddModal()">+ Add Server</button>
-      <button class="btn btn-info" onclick="exportBackup()">Export Backup</button>
-      <button type="button" class="btn btn-secondary" onclick="document.getElementById('backupFileInput').click()">Import Backup</button>
-      <input type="file" id="backupFileInput" accept=".zip" style="display:none" onchange="importBackup(this)">
-      <a href="/stats" class="btn btn-secondary" style="text-decoration:none;color:white">Stats Dashboard</a>
+    <div class="flex gap-2 flex-wrap mb-5">
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-cyan-400 border-slate-700 hover:bg-slate-700 hover:border-cyan-400" onclick="openAddModal()">+ Add Server</button>
+      <button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-purple-400 border-slate-700 hover:bg-slate-700 hover:border-purple-400" onclick="exportBackup()">Export Backup</button>
+      <button type="button" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:border-slate-400" onclick="document.getElementById('backupFileInput').click()">Import Backup</button>
+      <input type="file" id="backupFileInput" accept=".zip" class="hidden" onchange="importBackup(this)">
+      <a href="/stats" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-400 no-underline">Stats Dashboard</a>
     </div>
-    <div class="server-list" id="serverList"></div>
+    <div class="mt-5" id="serverList"></div>
   </div>
 
   <!-- Profile Create/Edit Modal -->
-  <div id="profileModal" class="modal">
-    <div class="modal-content" style="max-width:560px">
-      <div class="modal-header">
-        <h2 id="profileModalTitle">Create Profile</h2>
-        <span class="close" onclick="closeProfileModal()">&times;</span>
+  <div id="profileModal" class="hidden fixed inset-0 bg-slate-900/90 z-50">
+    <div class="bg-slate-800 border border-slate-700 mx-auto mt-10 p-7 rounded-lg max-w-[560px] max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-5">
+        <h2 id="profileModalTitle" class="text-white text-lg font-semibold">Create Profile</h2>
+        <span class="text-2xl cursor-pointer text-slate-500 leading-none hover:text-slate-200" onclick="closeProfileModal()">&times;</span>
       </div>
       <form onsubmit="saveProfile(event)">
-        <div class="form-group">
-          <label>Profile Name *</label>
-          <input type="text" id="profileName" required placeholder="e.g. Development, Writing">
+        <div class="mb-3.5">
+          <label class="block mb-1 font-medium text-slate-400 text-sm">Profile Name *</label>
+          <input type="text" id="profileName" required placeholder="e.g. Development, Writing" class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
         </div>
-        <div class="form-group">
-          <label>Servers to Include</label>
-          <div id="profileServerCheckboxes" style="max-height:300px;overflow-y:auto;padding:8px;background:#0f1923;border:1px solid #2a3a4a;border-radius:4px"></div>
-          <div style="font-size:11px;color:#5a6b7d;margin-top:4px">Select servers to include in this profile. Only selected servers will be enabled when the profile is activated.</div>
+        <div class="mb-3.5">
+          <label class="block mb-1 font-medium text-slate-400 text-sm">Servers to Include</label>
+          <div id="profileServerCheckboxes" class="max-h-[300px] overflow-y-auto p-2 bg-slate-900 border border-slate-700 rounded"></div>
+          <div class="text-[11px] text-slate-500 mt-1">Select servers to include in this profile. Only selected servers will be enabled when the profile is activated.</div>
         </div>
-        <div class="btn-group" style="margin-top:16px">
-          <button type="submit" class="btn btn-success" id="profileSaveBtn">Save Profile</button>
-          <button type="button" class="btn btn-secondary" onclick="closeProfileModal()">Cancel</button>
+        <div class="flex gap-2 flex-wrap mt-4">
+          <button type="submit" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-green-400 border-slate-700 hover:bg-slate-700 hover:border-green-400" id="profileSaveBtn">Save Profile</button>
+          <button type="button" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:border-slate-400" onclick="closeProfileModal()">Cancel</button>
         </div>
       </form>
     </div>
   </div>
 
   <!-- Profile Manager Modal -->
-  <div id="profileManagerModal" class="modal">
-    <div class="modal-content" style="max-width:600px">
-      <div class="modal-header">
-        <h2>Manage Profiles</h2>
-        <span class="close" onclick="closeProfileManager()">&times;</span>
+  <div id="profileManagerModal" class="hidden fixed inset-0 bg-slate-900/90 z-50">
+    <div class="bg-slate-800 border border-slate-700 mx-auto mt-10 p-7 rounded-lg max-w-[600px] max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-5">
+        <h2 class="text-white text-lg font-semibold">Manage Profiles</h2>
+        <span class="text-2xl cursor-pointer text-slate-500 leading-none hover:text-slate-200" onclick="closeProfileManager()">&times;</span>
       </div>
-      <div id="profileList" class="profile-list"></div>
+      <div id="profileList" class="mt-3"></div>
     </div>
   </div>
 
-  <div id="modal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalTitle">Add Server</h2>
-        <span class="close" onclick="closeModal()">&times;</span>
+  <!-- Server Modal -->
+  <div id="modal" class="hidden fixed inset-0 bg-slate-900/90 z-50">
+    <div class="bg-slate-800 border border-slate-700 mx-auto mt-10 p-7 rounded-lg max-w-[640px] max-h-[85vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-5">
+        <h2 id="modalTitle" class="text-white text-lg font-semibold">Add Server</h2>
+        <span class="text-2xl cursor-pointer text-slate-500 leading-none hover:text-slate-200" onclick="closeModal()">&times;</span>
       </div>
       <form id="serverForm" onsubmit="saveServer(event)">
-        <div class="form-group">
-          <label>Server Name *</label>
-          <input type="text" id="serverName" required>
+        <div class="mb-3.5">
+          <label class="block mb-1 font-medium text-slate-400 text-sm">Server Name *</label>
+          <input type="text" id="serverName" required class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
         </div>
-        <div class="form-group">
-          <label>Server Type *</label>
-          <select id="serverType" onchange="toggleTypeFields()" required>
+        <div class="mb-3.5">
+          <label class="block mb-1 font-medium text-slate-400 text-sm">Server Type *</label>
+          <select id="serverType" onchange="toggleTypeFields()" required class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
             <option value="http">HTTP</option>
             <option value="stdio">STDIO</option>
           </select>
         </div>
-        <div id="httpFields" class="type-fields active">
-          <div class="form-group">
-            <label>URL *</label>
-            <input type="url" id="serverUrl">
+        <div id="httpFields" class="hidden">
+          <div class="mb-3.5">
+            <label class="block mb-1 font-medium text-slate-400 text-sm">URL *</label>
+            <input type="url" id="serverUrl" class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
           </div>
-          <div class="form-group">
-            <label>HTTP Headers (JSON)</label>
-            <textarea id="serverHeaders" placeholder='{"Authorization": "Bearer token"}'></textarea>
-          </div>
-        </div>
-        <div id="stdioFields" class="type-fields">
-          <div class="form-group">
-            <label>Command *</label>
-            <input type="text" id="serverCommand">
-          </div>
-          <div class="form-group">
-            <label>Arguments (JSON array)</label>
-            <textarea id="serverArgs" placeholder='["arg1", "arg2"]'></textarea>
-          </div>
-          <div class="form-group">
-            <label>Environment Variables (JSON)</label>
-            <textarea id="serverEnv" placeholder='{"KEY": "value"}'></textarea>
+          <div class="mb-3.5">
+            <label class="block mb-1 font-medium text-slate-400 text-sm">HTTP Headers (JSON)</label>
+            <textarea id="serverHeaders" placeholder='{"Authorization": "Bearer token"}' class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none min-h-[80px] font-mono"></textarea>
           </div>
         </div>
-        <div class="form-group">
-          <label>Enabled Tools</label>
-          <div class="enabled-tools-row">
-            <input type="text" id="enabledTools" placeholder="Leave empty to enable all">
-            <button type="button" class="btn btn-info" onclick="probeAndShowTools()">Query Tools</button>
+        <div id="stdioFields" class="hidden">
+          <div class="mb-3.5">
+            <label class="block mb-1 font-medium text-slate-400 text-sm">Command *</label>
+            <input type="text" id="serverCommand" class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
+          </div>
+          <div class="mb-3.5">
+            <label class="block mb-1 font-medium text-slate-400 text-sm">Arguments (JSON array)</label>
+            <textarea id="serverArgs" placeholder='["arg1", "arg2"]' class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none min-h-[80px] font-mono"></textarea>
+          </div>
+          <div class="mb-3.5">
+            <label class="block mb-1 font-medium text-slate-400 text-sm">Environment Variables (JSON)</label>
+            <textarea id="serverEnv" placeholder='{"KEY": "value"}' class="w-full px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none min-h-[80px] font-mono"></textarea>
           </div>
         </div>
-        <div id="probeSection" style="display:none" class="probe-section">
+        <div class="mb-3.5">
+          <label class="block mb-1 font-medium text-slate-400 text-sm">Enabled Tools</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="enabledTools" placeholder="Leave empty to enable all" class="flex-1 px-2 py-2 border border-slate-700 rounded text-sm bg-slate-900 text-slate-200 focus:border-cyan-400 focus:outline-none">
+            <button type="button" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-purple-400 border-slate-700 hover:bg-slate-700 hover:border-purple-400" onclick="probeAndShowTools()">Query Tools</button>
+          </div>
+        </div>
+        <div id="probeSection" class="hidden mt-2.5 p-3 bg-slate-900 rounded border border-slate-700">
           <div id="probeContent"></div>
         </div>
-        <div class="btn-group" style="margin-top:16px">
-          <button type="submit" class="btn btn-success" id="saveBtn">Save</button>
-          <button type="button" class="btn btn-secondary" id="cancelBtn" onclick="closeModal()">Cancel</button>
+        <div class="flex gap-2 flex-wrap mt-4">
+          <button type="submit" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-green-400 border-slate-700 hover:bg-slate-700 hover:border-green-400" id="saveBtn">Save</button>
+          <button type="button" class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700 hover:border-slate-400" id="cancelBtn" onclick="closeModal()">Cancel</button>
         </div>
       </form>
     </div>
@@ -250,7 +159,7 @@
       const serversKey = JSON.stringify(servers) + '|' + JSON.stringify(wsBridgeServers);
 
       if (servers.length === 0 && wsBridgeServers.length === 0) {
-        list.innerHTML = '<p style="color:#999;margin-top:20px">No servers configured. Click "+ Add Server" to get started.</p>';
+        list.innerHTML = '<p class="text-slate-400 mt-5">No servers configured. Click "+ Add Server" to get started.</p>';
         lastRenderedServersKey = '';
         return;
       }
@@ -264,42 +173,48 @@
           : 'Command: ' + s.command + ' ' + (s.args || []).join(' ') + (s.env && Object.keys(s.env).length ? ' | Env: ' + maskObj(s.env) : '');
         const enabled = s.enabled !== false;
         const capsId = 'caps-' + i;
-        return '<div class="server-item' + (enabled ? '' : ' disabled-server') + '" id="server-item-' + i + '">' +
-          '<div class="server-header">' +
-            '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-              '<span class="server-name">' + escHtml(s.name) + '</span>' +
-              '<span class="server-type type-' + type + '">' + type.toUpperCase() + '</span>' +
+        return '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mb-4 relative overflow-hidden' + (enabled ? '' : ' opacity-55') + '" id="server-item-' + i + '">' +
+          '<div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>' +
+          '<div class="flex justify-between items-center mb-2">' +
+            '<div class="flex items-center gap-1.5 flex-wrap">' +
+              '<span class="font-semibold text-[17px] text-white">' + escHtml(s.name) + '</span>' +
+              '<span class="inline-block px-1.5 py-0.5 rounded text-[11px] ml-2 ' + (type === 'http' ? 'bg-cyan-900/30 text-cyan-400' : 'bg-green-900/30 text-green-400') + '">' + type.toUpperCase() + '</span>' +
               '<span id="status-' + i + '"></span>' +
             '</div>' +
-            '<div class="btn-group" style="align-items:center">' +
-              '<div class="toggle-wrap" title="' + (enabled ? 'Click to disable' : 'Click to enable') + '">' +
-                '<label class="toggle"><input type="checkbox" id="toggle-' + i + '" ' + (enabled ? 'checked' : '') + ' onchange="toggleServer(' + i + ', this)"><span class="toggle-slider"></span></label>' +
+            '<div class="flex gap-2 flex-wrap items-center">' +
+              '<div class="flex items-center gap-1.5" title="' + (enabled ? 'Click to disable' : 'Click to enable') + '">' +
+                '<label class="relative inline-block w-10 h-[22px] shrink-0 cursor-pointer">' +
+                  '<input type="checkbox" id="toggle-' + i + '" ' + (enabled ? 'checked' : '') + ' onchange="toggleServer(' + i + ', this)" class="peer sr-only">' +
+                  '<span class="absolute inset-0 bg-slate-700 rounded-full transition-colors peer-checked:bg-cyan-700"></span>' +
+                  '<span class="absolute top-[3px] left-[3px] w-4 h-4 bg-slate-400 rounded-full transition-all peer-checked:translate-x-[18px] peer-checked:bg-white"></span>' +
+                '</label>' +
               '</div>' +
-              '<button class="btn btn-primary" id="edit-btn-' + i + '" onclick="editServer(' + i + ')">Edit</button>' +
-              '<button class="btn btn-danger" id="delete-btn-' + i + '" onclick="deleteServer(' + i + ')">Delete</button>' +
+              '<button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-cyan-400 border-slate-700 hover:bg-slate-700 hover:border-cyan-400" id="edit-btn-' + i + '" onclick="editServer(' + i + ')">Edit</button>' +
+              '<button class="px-3 py-1.5 rounded text-xs border cursor-pointer transition-colors bg-slate-800 text-red-400 border-slate-700 hover:bg-slate-700 hover:border-red-400" id="delete-btn-' + i + '" onclick="deleteServer(' + i + ')">Delete</button>' +
             '</div>' +
           '</div>' +
-          '<div class="server-details">' + escHtml(details) + '</div>' +
-          (s.enabledTools ? '<div class="server-details">Enabled Tools: ' + escHtml(s.enabledTools.join(', ')) + '</div>' : '') +
+          '<div class="text-xs text-slate-400 mt-1">' + escHtml(details) + '</div>' +
+          (s.enabledTools ? '<div class="text-xs text-slate-400 mt-1">Enabled Tools: ' + escHtml(s.enabledTools.join(', ')) + '</div>' : '') +
           '<div id="error-' + i + '"></div>' +
-          '<div class="caps-section" id="' + capsId + '" style="display:none"></div>' +
+          '<div class="mt-2.5 border-t border-slate-700 pt-2.5 hidden" id="' + capsId + '"></div>' +
         '</div>';
         }).join('');
 
         // Render wsBridge servers (read-only, auto-registered)
         const wsBridgeHtml = wsBridgeServers.map((ws) => {
           const wsbId = 'wsb-caps-' + ws.name;
-          return '<div class="server-item" id="wsbridge-item-' + ws.name + '">' +
-            '<div class="server-header">' +
-              '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-                '<span class="server-name">' + escHtml(ws.name) + '</span>' +
-                '<span class="server-type type-wsbridge">WSBRIDGE</span>' +
+          return '<div class="bg-slate-800 border border-slate-700 rounded-lg p-5 mb-4 relative overflow-hidden" id="wsbridge-item-' + ws.name + '">' +
+            '<div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>' +
+            '<div class="flex justify-between items-center mb-2">' +
+              '<div class="flex items-center gap-1.5 flex-wrap">' +
+                '<span class="font-semibold text-[17px] text-white">' + escHtml(ws.name) + '</span>' +
+                '<span class="inline-block px-1.5 py-0.5 rounded text-[11px] ml-2 bg-purple-900/30 text-purple-400">WSBRIDGE</span>' +
                 '<span id="wsbridge-status-' + ws.name + '"></span>' +
               '</div>' +
-              '<div style="font-size:11px;color:#999">auto-registered · read-only</div>' +
+              '<div class="text-[11px] text-slate-500">auto-registered · read-only</div>' +
             '</div>' +
-            '<div class="server-details">WebSocket bridge — client connects at /ws/' + escHtml(ws.name) + '</div>' +
-            '<div class="caps-section" id="' + wsbId + '" style="display:none"></div>' +
+            '<div class="text-xs text-slate-400 mt-1">WebSocket bridge — client connects at /ws/' + escHtml(ws.name) + '</div>' +
+            '<div class="mt-2.5 border-t border-slate-700 pt-2.5 hidden" id="' + wsbId + '"></div>' +
           '</div>';
         }).join('');
 
@@ -334,41 +249,41 @@
         const capsEl = document.getElementById('caps-' + i);
         if (!itemEl || !statusEl || !errorEl || !capsEl) return;
 
-        itemEl.classList.toggle('disabled-server', !enabled);
+        itemEl.classList.toggle('opacity-55', !enabled);
 
         if (!enabled) {
-          statusEl.innerHTML = '<span class="status-badge" style="background:#e2e3e5;color:#6c757d">disabled</span>';
+          statusEl.innerHTML = '<span class="inline-block px-2 py-0.5 rounded text-[11px] bg-slate-600 text-slate-500">disabled</span>';
           errorEl.innerHTML = '';
-          capsEl.style.display = 'none';
+          capsEl.classList.add('hidden');
           capsEl.innerHTML = '';
           return;
         }
 
         if (!st || st.status === 'loading') {
           hasLoadingServers = true;
-          statusEl.innerHTML = '<span class="status-badge status-loading">loading...</span>';
+          statusEl.innerHTML = '<span class="inline-block px-2 py-0.5 rounded text-[11px] bg-amber-900/30 text-amber-400">loading...</span>';
           errorEl.innerHTML = '';
-          capsEl.style.display = 'none';
+          capsEl.classList.add('hidden');
           capsEl.innerHTML = '';
           return;
         }
 
         if (st.status === 'failed') {
-          statusEl.innerHTML = '<span class="status-badge status-failed">failed</span>';
+          statusEl.innerHTML = '<span class="inline-block px-2 py-0.5 rounded text-[11px] bg-red-900/30 text-red-400">failed</span>';
           errorEl.innerHTML = st.error
-            ? '<div class="error-msg">Error: ' + escHtml(st.error) + '</div>'
+            ? '<div class="text-xs text-red-400 mt-1 bg-red-900/30 px-2 py-1 rounded">Error: ' + escHtml(st.error) + '</div>'
             : '';
-          capsEl.style.display = 'none';
+          capsEl.classList.add('hidden');
           capsEl.innerHTML = '';
           return;
         }
 
-        statusEl.innerHTML = '<span class="status-badge status-connected">connected</span>';
+        statusEl.innerHTML = '<span class="inline-block px-2 py-0.5 rounded text-[11px] bg-green-900/30 text-green-400">connected</span>';
         errorEl.innerHTML = '';
-        capsEl.style.display = 'block';
+        capsEl.classList.remove('hidden');
         if (!capsEl.dataset.loadedFor || capsEl.dataset.loadedFor !== s.name) {
           capsEl.dataset.loadedFor = s.name;
-          capsEl.innerHTML = '<span style="font-size:12px;color:#999">Loading capabilities...</span>';
+          capsEl.innerHTML = '<span class="text-xs text-slate-500">Loading capabilities...</span>';
           loadCaps(s.name, 'caps-' + i);
         }
       });
@@ -382,11 +297,11 @@
         const capsEl = document.getElementById('wsb-caps-' + ws.name);
         if (!statusEl || !capsEl) continue;
 
-        statusEl.innerHTML = '<span class="status-badge status-connected">connected</span>';
-        capsEl.style.display = 'block';
+        statusEl.innerHTML = '<span class="inline-block px-2 py-0.5 rounded text-[11px] bg-green-900/30 text-green-400">connected</span>';
+        capsEl.classList.remove('hidden');
         if (!capsEl.dataset.loadedFor || capsEl.dataset.loadedFor !== ws.name) {
           capsEl.dataset.loadedFor = ws.name;
-          capsEl.innerHTML = '<span style="font-size:12px;color:#999">Loading capabilities...</span>';
+          capsEl.innerHTML = '<span class="text-xs text-slate-500">Loading capabilities...</span>';
           loadCaps(ws.name, 'wsb-caps-' + ws.name);
         }
       }
@@ -396,7 +311,7 @@
       if (loading) {
         btn.disabled = true;
         btn.dataset.originalText = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner"></span>' + originalText;
+        btn.innerHTML = '<span class="inline-block w-3 h-3 border-2 border-white/40 border-t-cyan-400 rounded-full animate-[spin_0.6s_linear_infinite] mr-1 align-middle"></span>' + originalText;
       } else {
         btn.disabled = false;
         btn.innerHTML = btn.dataset.originalText || originalText;
@@ -439,26 +354,26 @@
         const caps = await res.json();
         let html = '';
         if (caps.tools && caps.tools.length > 0) {
-          html += '<div class="caps-group"><div class="caps-label">Tools (' + caps.tools.length + ')</div><div class="caps-list">' +
-            caps.tools.map(t => '<span class="cap-tag cap-tool" title="' + escHtml(t.description) + '">' + escHtml(t.name) + '</span>').join('') +
+          html += '<div class="mb-2"><div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Tools (' + caps.tools.length + ')</div><div class="flex flex-wrap gap-1">' +
+            caps.tools.map(t => '<span class="inline-block px-2 py-0.5 rounded text-xs font-mono bg-cyan-900/30 text-cyan-400 border border-cyan-800" title="' + escHtml(t.description) + '">' + escHtml(t.name) + '</span>').join('') +
           '</div></div>';
         }
         if (caps.resources && caps.resources.length > 0) {
-          html += '<div class="caps-group"><div class="caps-label">Resources (' + caps.resources.length + ')</div><div class="caps-list">' +
-            caps.resources.map(r => '<span class="cap-tag cap-resource" title="' + escHtml(r.description) + '">' + escHtml(r.uri) + '</span>').join('') +
+          html += '<div class="mb-2"><div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Resources (' + caps.resources.length + ')</div><div class="flex flex-wrap gap-1">' +
+            caps.resources.map(r => '<span class="inline-block px-2 py-0.5 rounded text-xs font-mono bg-amber-900/30 text-amber-400 border border-amber-800" title="' + escHtml(r.description) + '">' + escHtml(r.uri) + '</span>').join('') +
           '</div></div>';
         }
         if (caps.resourceTemplates && caps.resourceTemplates.length > 0) {
-          html += '<div class="caps-group"><div class="caps-label">Resource Templates (' + caps.resourceTemplates.length + ')</div><div class="caps-list">' +
-            caps.resourceTemplates.map(r => '<span class="cap-tag cap-template" title="' + escHtml(r.description) + '">' + escHtml(r.uriTemplate) + '</span>').join('') +
+          html += '<div class="mb-2"><div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Resource Templates (' + caps.resourceTemplates.length + ')</div><div class="flex flex-wrap gap-1">' +
+            caps.resourceTemplates.map(r => '<span class="inline-block px-2 py-0.5 rounded text-xs font-mono bg-purple-900/30 text-purple-400 border border-purple-800" title="' + escHtml(r.description) + '">' + escHtml(r.uriTemplate) + '</span>').join('') +
           '</div></div>';
         }
         if (caps.prompts && caps.prompts.length > 0) {
-          html += '<div class="caps-group"><div class="caps-label">Prompts (' + caps.prompts.length + ')</div><div class="caps-list">' +
-            caps.prompts.map(p => '<span class="cap-tag cap-prompt" title="' + escHtml(p.description) + '">' + escHtml(p.name) + '</span>').join('') +
+          html += '<div class="mb-2"><div class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Prompts (' + caps.prompts.length + ')</div><div class="flex flex-wrap gap-1">' +
+            caps.prompts.map(p => '<span class="inline-block px-2 py-0.5 rounded text-xs font-mono bg-green-900/30 text-green-400 border border-green-800" title="' + escHtml(p.description) + '">' + escHtml(p.name) + '</span>').join('') +
           '</div></div>';
         }
-        el.innerHTML = html || '<span style="font-size:12px;color:#999">No capabilities found</span>';
+        el.innerHTML = html || '<span class="text-xs text-slate-500">No capabilities found</span>';
       } catch(e) {
         el.innerHTML = '';
       }
@@ -484,10 +399,10 @@
     async function probeAndShowTools() {
       const sec = document.getElementById('probeSection');
       const content = document.getElementById('probeContent');
-      sec.style.display = 'block';
+      sec.classList.remove('hidden');
 
       const cfg = buildProbeConfig();
-      content.innerHTML = '<div class="probe-loading">Connecting to server...</div>';
+      content.innerHTML = '<div class="text-amber-400 text-xs">Connecting to server...</div>';
       try {
         const res = await fetch('/api/probe', {
           method: 'POST',
@@ -496,69 +411,69 @@
         });
         const data = await res.json();
         if (!res.ok) {
-          content.innerHTML = '<div class="probe-error">Error: ' + escHtml(data.error || 'Unknown error') + '</div>';
+          content.innerHTML = '<div class="text-red-400 text-xs bg-red-900/30 px-2.5 py-1.5 rounded">Error: ' + escHtml(data.error || 'Unknown error') + '</div>';
           return;
         }
         renderProbeResults(data);
       } catch(e) {
-        content.innerHTML = '<div class="probe-error">Error: ' + escHtml(e.message) + '</div>';
+        content.innerHTML = '<div class="text-red-400 text-xs bg-red-900/30 px-2.5 py-1.5 rounded">Error: ' + escHtml(e.message) + '</div>';
       }
     }
 
     function renderProbeResults(data) {
       const content = document.getElementById('probeContent');
-      let html = '<h4>Select capabilities to enable (all checked by default):</h4>';
+      let html = '<h4 class="text-xs text-slate-400 mb-2">Select capabilities to enable (all checked by default):</h4>';
 
       if (data.tools && data.tools.length > 0) {
-        html += '<div class="probe-group"><div class="probe-group-label">Tools (' + data.tools.length + ')</div>';
+        html += '<div class="mb-2.5"><div class="text-xs font-semibold text-slate-400 uppercase mb-1">Tools (' + data.tools.length + ')</div>';
         data.tools.forEach(t => {
-          html += '<div class="probe-item">' +
-            '<input type="checkbox" class="probe-tool-cb" value="' + escHtml(t.name) + '" checked>' +
-            '<div><div class="probe-item-name">' + escHtml(t.name) + '</div>' +
-            (t.description ? '<div class="probe-item-desc">' + escHtml(t.description) + '</div>' : '') +
+          html += '<div class="flex items-start gap-1.5 py-0.5">' +
+            '<input type="checkbox" class="probe-tool-cb mt-0.5 shrink-0" value="' + escHtml(t.name) + '" checked>' +
+            '<div><div class="font-mono text-xs text-slate-200">' + escHtml(t.name) + '</div>' +
+            (t.description ? '<div class="text-xs text-slate-500">' + escHtml(t.description) + '</div>' : '') +
             '</div></div>';
         });
         html += '</div>';
       }
 
       if (data.resources && data.resources.length > 0) {
-        html += '<div class="probe-group"><div class="probe-group-label">Resources (' + data.resources.length + ')</div>';
+        html += '<div class="mb-2.5"><div class="text-xs font-semibold text-slate-400 uppercase mb-1">Resources (' + data.resources.length + ')</div>';
         data.resources.forEach(r => {
-          html += '<div class="probe-item">' +
-            '<input type="checkbox" class="probe-resource-cb" value="' + escHtml(r.uri) + '" checked>' +
-            '<div><div class="probe-item-name">' + escHtml(r.uri) + '</div>' +
-            (r.description ? '<div class="probe-item-desc">' + escHtml(r.description) + '</div>' : '') +
+          html += '<div class="flex items-start gap-1.5 py-0.5">' +
+            '<input type="checkbox" class="probe-resource-cb mt-0.5 shrink-0" value="' + escHtml(r.uri) + '" checked>' +
+            '<div><div class="font-mono text-xs text-slate-200">' + escHtml(r.uri) + '</div>' +
+            (r.description ? '<div class="text-xs text-slate-500">' + escHtml(r.description) + '</div>' : '') +
             '</div></div>';
         });
         html += '</div>';
       }
 
       if (data.resourceTemplates && data.resourceTemplates.length > 0) {
-        html += '<div class="probe-group"><div class="probe-group-label">Resource Templates (' + data.resourceTemplates.length + ')</div>';
+        html += '<div class="mb-2.5"><div class="text-xs font-semibold text-slate-400 uppercase mb-1">Resource Templates (' + data.resourceTemplates.length + ')</div>';
         data.resourceTemplates.forEach(r => {
-          html += '<div class="probe-item">' +
-            '<input type="checkbox" class="probe-template-cb" value="' + escHtml(r.uriTemplate) + '" checked>' +
-            '<div><div class="probe-item-name">' + escHtml(r.uriTemplate) + '</div>' +
-            (r.description ? '<div class="probe-item-desc">' + escHtml(r.description) + '</div>' : '') +
+          html += '<div class="flex items-start gap-1.5 py-0.5">' +
+            '<input type="checkbox" class="probe-template-cb mt-0.5 shrink-0" value="' + escHtml(r.uriTemplate) + '" checked>' +
+            '<div><div class="font-mono text-xs text-slate-200">' + escHtml(r.uriTemplate) + '</div>' +
+            (r.description ? '<div class="text-xs text-slate-500">' + escHtml(r.description) + '</div>' : '') +
             '</div></div>';
         });
         html += '</div>';
       }
 
       if (data.prompts && data.prompts.length > 0) {
-        html += '<div class="probe-group"><div class="probe-group-label">Prompts (' + data.prompts.length + ')</div>';
+        html += '<div class="mb-2.5"><div class="text-xs font-semibold text-slate-400 uppercase mb-1">Prompts (' + data.prompts.length + ')</div>';
         data.prompts.forEach(p => {
-          html += '<div class="probe-item">' +
-            '<input type="checkbox" class="probe-prompt-cb" value="' + escHtml(p.name) + '" checked>' +
-            '<div><div class="probe-item-name">' + escHtml(p.name) + '</div>' +
-            (p.description ? '<div class="probe-item-desc">' + escHtml(p.description) + '</div>' : '') +
+          html += '<div class="flex items-start gap-1.5 py-0.5">' +
+            '<input type="checkbox" class="probe-prompt-cb mt-0.5 shrink-0" value="' + escHtml(p.name) + '" checked>' +
+            '<div><div class="font-mono text-xs text-slate-200">' + escHtml(p.name) + '</div>' +
+            (p.description ? '<div class="text-xs text-slate-500">' + escHtml(p.description) + '</div>' : '') +
             '</div></div>';
         });
         html += '</div>';
       }
 
       if (!data.tools?.length && !data.resources?.length && !data.resourceTemplates?.length && !data.prompts?.length) {
-        html += '<div style="color:#999;font-size:13px">No capabilities found on this server.</div>';
+        html += '<div class="text-slate-500 text-xs">No capabilities found on this server.</div>';
       }
 
       content.innerHTML = html;
@@ -583,10 +498,10 @@
       editingIndex = -1;
       document.getElementById('modalTitle').textContent = 'Add Server';
       document.getElementById('serverForm').reset();
-      document.getElementById('probeSection').style.display = 'none';
+      document.getElementById('probeSection').classList.add('hidden');
       document.getElementById('probeContent').innerHTML = '';
       resetSaveButton();
-      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modal').classList.remove('hidden');
       toggleTypeFields();
     }
 
@@ -610,10 +525,10 @@
       }
 
       document.getElementById('enabledTools').value = server.enabledTools ? server.enabledTools.join(', ') : '';
-      document.getElementById('probeSection').style.display = 'none';
+      document.getElementById('probeSection').classList.add('hidden');
       document.getElementById('probeContent').innerHTML = '';
       resetSaveButton();
-      document.getElementById('modal').style.display = 'block';
+      document.getElementById('modal').classList.remove('hidden');
       toggleTypeFields();
     }
 
@@ -717,13 +632,13 @@
 
     function closeModal() {
       resetSaveButton();
-      document.getElementById('modal').style.display = 'none';
+      document.getElementById('modal').classList.add('hidden');
     }
 
     function toggleTypeFields() {
       const type = document.getElementById('serverType').value;
-      document.getElementById('httpFields').classList.toggle('active', type === 'http');
-      document.getElementById('stdioFields').classList.toggle('active', type === 'stdio');
+      document.getElementById('httpFields').classList.toggle('hidden', type !== 'http');
+      document.getElementById('stdioFields').classList.toggle('hidden', type !== 'stdio');
     }
 
     // ===== Profile Functions =====
@@ -752,11 +667,10 @@
         sel.appendChild(opt);
       });
 
-      // Show/hide activate/deactivate buttons
       const btnActivate = document.getElementById('btnActivateProfile');
       const btnDeactivate = document.getElementById('btnDeactivateProfile');
       btnActivate.disabled = !sel.value || sel.value === currentActiveProfile;
-      btnDeactivate.style.display = currentActiveProfile ? 'inline-block' : 'none';
+      btnDeactivate.classList.toggle('hidden', !currentActiveProfile);
     }
 
     function onProfileSelectChange() {
@@ -814,23 +728,23 @@
 
       const container = document.getElementById('profileServerCheckboxes');
       if (servers.length === 0) {
-        container.innerHTML = '<div style="color:#999;font-size:13px;padding:8px">No servers configured. Add servers first.</div>';
+        container.innerHTML = '<div class="text-slate-500 text-xs p-2">No servers configured. Add servers first.</div>';
       } else {
         container.innerHTML = servers.map(s => {
           const checked = checkedServers.includes(s.name) ? 'checked' : '';
           const enabled = s.enabled !== false;
-          return '<div class="probe-item" style="padding:6px 0">' +
-            '<input type="checkbox" class="profile-srv-cb" value="' + escHtml(s.name) + '" ' + checked + ' style="width:auto">' +
-            '<div><div class="probe-item-name">' + escHtml(s.name) + '</div>' +
-            '<div class="probe-item-desc">' + (enabled ? '' : '<span style="color:#dc3545">disabled</span> · ') + (s.url ? 'HTTP' : 'STDIO') + '</div></div></div>';
+          return '<div class="flex items-start gap-1.5 py-1.5">' +
+            '<input type="checkbox" class="profile-srv-cb mt-0.5 shrink-0" value="' + escHtml(s.name) + '" ' + checked + '>' +
+            '<div><div class="font-mono text-xs text-slate-200">' + escHtml(s.name) + '</div>' +
+            '<div class="text-xs text-slate-500">' + (enabled ? '' : '<span class="text-red-400">disabled</span> · ') + (s.url ? 'HTTP' : 'STDIO') + '</div></div></div>';
         }).join('');
       }
 
-      document.getElementById('profileModal').style.display = 'block';
+      document.getElementById('profileModal').classList.remove('hidden');
     }
 
     function closeProfileModal() {
-      document.getElementById('profileModal').style.display = 'none';
+      document.getElementById('profileModal').classList.add('hidden');
     }
 
     async function saveProfile(e) {
@@ -841,7 +755,6 @@
       const checkedServers = Array.from(document.querySelectorAll('.profile-srv-cb:checked')).map(cb => cb.value);
 
       if (editingProfileName) {
-        // Update existing
         try {
           const res = await fetch('/api/profiles/' + encodeURIComponent(editingProfileName), {
             method: 'PUT',
@@ -852,12 +765,11 @@
           if (!res.ok) { alert('Error: ' + (data.error || 'Unknown error')); return; }
           closeProfileModal();
           await loadProfiles();
-          if (document.getElementById('profileManagerModal').style.display === 'block') {
+          if (!document.getElementById('profileManagerModal').classList.contains('hidden')) {
             renderProfileManager();
           }
         } catch(e) { alert('Error: ' + e.message); }
       } else {
-        // Create new
         try {
           const res = await fetch('/api/profiles', {
             method: 'POST',
@@ -873,43 +785,42 @@
     }
 
     async function openProfileManager() {
-      document.getElementById('profileManagerModal').style.display = 'block';
+      document.getElementById('profileManagerModal').classList.remove('hidden');
       renderProfileManager();
     }
 
     function closeProfileManager() {
-      document.getElementById('profileManagerModal').style.display = 'none';
+      document.getElementById('profileManagerModal').classList.add('hidden');
     }
 
     function renderProfileManager() {
       const container = document.getElementById('profileList');
       if (currentProfiles.length === 0) {
-        container.innerHTML = '<div style="text-align:center;color:#999;padding:30px">No profiles created yet. Click "+ New Profile" to create one.</div>';
+        container.innerHTML = '<div class="text-center text-slate-500 p-8">No profiles created yet. Click "+ New Profile" to create one.</div>';
         return;
       }
 
       container.innerHTML = currentProfiles.map(p => {
         const isActive = p.name === currentActiveProfile;
         const escaped = escHtml(p.name);
-        return '<div class="profile-item' + (isActive ? ' active-profile' : '') + '" data-profile="' + escaped + '">' +
-          '<div class="profile-info">' +
-            '<div class="profile-name">' + escaped + (isActive ? ' <span class="active-tag">ACTIVE</span>' : '') + '</div>' +
-            '<div class="profile-servers">' + (p.servers.length > 0 ? p.servers.map(s => '<span>' + escHtml(s) + '</span>').join('') : '<span style="color:#dc3545">No servers</span>') + '</div>' +
+        return '<div class="bg-slate-800 border border-slate-700 rounded-lg p-3.5 mb-2.5 flex justify-between items-center relative overflow-hidden' + (isActive ? ' border-green-400' : '') + '" data-profile="' + escaped + '">' +
+          '<div class="absolute top-0 left-0 right-0 h-[3px] ' + (isActive ? 'bg-gradient-to-r from-green-400 to-green-700' : 'bg-gradient-to-r from-cyan-400 to-cyan-700') + '"></div>' +
+          '<div class="flex-1">' +
+            '<div class="font-semibold text-[15px] text-white">' + escaped + (isActive ? ' <span class="inline-block px-2.5 py-0.5 bg-green-900/30 text-green-400 rounded text-[11px] font-semibold">ACTIVE</span>' : '') + '</div>' +
+            '<div class="text-xs text-slate-500 mt-0.5">' + (p.servers.length > 0 ? p.servers.map(s => '<span class="inline-block px-1.5 py-[1px] bg-cyan-900/30 text-cyan-400 rounded mx-0.5 text-[11px]">' + escHtml(s) + '</span>').join('') : '<span class="text-red-400">No servers</span>') + '</div>' +
           '</div>' +
-          '<div class="btn-group">' +
-            (!isActive ? '<button class="btn btn-success" data-action="activate" style="padding:4px 10px;font-size:11px">Activate</button>' : '') +
-            '<button class="btn btn-primary" data-action="edit" style="padding:4px 10px;font-size:11px">Edit</button>' +
-            '<button class="btn btn-danger" data-action="delete" style="padding:4px 10px;font-size:11px">Delete</button>' +
+          '<div class="flex gap-2 flex-wrap">' +
+            (!isActive ? '<button class="px-2.5 py-1 rounded text-[11px] border cursor-pointer transition-colors bg-slate-800 text-green-400 border-slate-700 hover:bg-slate-700 hover:border-green-400" data-action="activate">Activate</button>' : '') +
+            '<button class="px-2.5 py-1 rounded text-[11px] border cursor-pointer transition-colors bg-slate-800 text-cyan-400 border-slate-700 hover:bg-slate-700 hover:border-cyan-400" data-action="edit">Edit</button>' +
+            '<button class="px-2.5 py-1 rounded text-[11px] border cursor-pointer transition-colors bg-slate-800 text-red-400 border-slate-700 hover:bg-slate-700 hover:border-red-400" data-action="delete">Delete</button>' +
           '</div>' +
         '</div>';
       }).join('');
 
       // Wire up event delegation for profile manager buttons
-      container.querySelectorAll('.btn-group').forEach(group => {
-        group.addEventListener('click', (e) => {
-          const btn = e.target.closest('button');
-          if (!btn || !btn.dataset.action) return;
-          const item = btn.closest('.profile-item');
+      container.querySelectorAll('[data-action]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const item = btn.closest('[data-profile]');
           if (!item) return;
           const name = item.dataset.profile;
           if (btn.dataset.action === 'activate') activateProfileFromManager(name);
