@@ -5,193 +5,118 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MCP Center - Statistics Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1923; color: #e0e6ed; min-height: 100vh; }
-
-    .dashboard { max-width: 1600px; margin: 0 auto; padding: 24px; }
-
-    /* Header */
-    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
-    .header h1 { font-size: 24px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
-    .header h1 .icon { font-size: 28px; }
-    .header-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .header-controls a { color: #4fc3f7; text-decoration: none; font-size: 13px; padding: 6px 14px; border: 1px solid #2a3a4a; border-radius: 4px; transition: all 0.2s; }
-    .header-controls a:hover { background: #1a2a3a; border-color: #4fc3f7; }
-
-    select, .btn { padding: 7px 14px; border-radius: 4px; font-size: 13px; border: 1px solid #2a3a4a; background: #1a2a3a; color: #e0e6ed; cursor: pointer; transition: all 0.2s; }
-    select:hover { border-color: #4fc3f7; }
-    select:focus { outline: none; border-color: #4fc3f7; }
-
-    .auto-refresh { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #8a9bb5; }
-    .auto-refresh label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    .toggle { position: relative; display: inline-block; width: 36px; height: 20px; }
-    .toggle input { opacity: 0; width: 0; height: 0; }
-    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #2a3a4a; border-radius: 20px; transition: 0.2s; }
-    .toggle-slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background: #8a9bb5; border-radius: 50%; transition: 0.2s; }
-    .toggle input:checked + .toggle-slider { background: #0288d1; }
-    .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: #fff; }
-
-    .last-updated { font-size: 12px; color: #5a6b7d; }
-
-    /* KPI Cards */
-    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi-card { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 20px; position: relative; overflow: hidden; }
-    .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
-    .kpi-card.calls::before { background: linear-gradient(90deg, #4fc3f7, #0288d1); }
-    .kpi-card.success::before { background: linear-gradient(90deg, #66bb6a, #2e7d32); }
-    .kpi-card.duration::before { background: linear-gradient(90deg, #ffa726, #ef6c00); }
-    .kpi-card.tools::before { background: linear-gradient(90deg, #ab47bc, #7b1fa2); }
-    .kpi-label { font-size: 12px; color: #8a9bb5; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-    .kpi-value { font-size: 32px; font-weight: 700; line-height: 1.1; }
-    .kpi-card.calls .kpi-value { color: #4fc3f7; }
-    .kpi-card.success .kpi-value { color: #66bb6a; }
-    .kpi-card.duration .kpi-value { color: #ffa726; }
-    .kpi-card.tools .kpi-value { color: #ab47bc; }
-    .kpi-sub { font-size: 12px; color: #5a6b7d; margin-top: 6px; }
-
-    /* Chart Grid */
-    .chart-row { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 24px; }
-    .chart-card { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 20px; }
-    .chart-card h3 { font-size: 14px; color: #8a9bb5; margin-bottom: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-    .chart-container { width: 100%; height: 320px; }
-
-    /* Type Distribution Row */
-    .chart-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-
-    /* Table */
-    .table-card { background: linear-gradient(135deg, #1a2a3a 0%, #1e3345 100%); border: 1px solid #2a3a4a; border-radius: 8px; padding: 20px; }
-    .table-card h3 { font-size: 14px; color: #8a9bb5; margin-bottom: 16px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
-    .table-wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    thead { position: sticky; top: 0; z-index: 1; }
-    th { background: #0f1923; color: #8a9bb5; text-align: left; padding: 10px 12px; font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; border-bottom: 1px solid #2a3a4a; }
-    td { padding: 10px 12px; border-bottom: 1px solid #1a2a3a; color: #c0cdd9; }
-    tr:hover td { background: rgba(79, 195, 247, 0.04); }
-    .status-success { color: #66bb6a; font-weight: 600; }
-    .status-error { color: #ef5350; font-weight: 600; }
-    .type-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 500; }
-    .type-tool { background: rgba(79, 195, 247, 0.15); color: #4fc3f7; }
-    .type-resource { background: rgba(255, 167, 38, 0.15); color: #ffa726; }
-    .type-prompt { background: rgba(171, 71, 188, 0.15); color: #ab47bc; }
-    .mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 12px; }
-    .empty-msg { text-align: center; color: #5a6b7d; padding: 40px; font-size: 14px; }
-
-    /* Loading */
-    .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: #5a6b7d; }
-    .spinner { display: inline-block; width: 24px; height: 24px; border: 3px solid #2a3a4a; border-top-color: #4fc3f7; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 10px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Responsive */
-    @media (max-width: 1200px) {
-      .kpi-row { grid-template-columns: repeat(2, 1fr); }
-      .chart-row, .chart-row-2 { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 600px) {
-      .kpi-row { grid-template-columns: 1fr; }
-      .dashboard { padding: 12px; }
-    }
-
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #0f1923; }
     ::-webkit-scrollbar-thumb { background: #2a3a4a; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #3a4a5a; }
   </style>
 </head>
-<body>
-  <div class="dashboard">
+<body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
+  <div class="max-w-[1600px] mx-auto p-6">
+
     <!-- Header -->
-    <div class="header">
-      <h1><span class="icon">&#128202;</span> MCP Center Statistics</h1>
-      <div class="header-controls">
-        <select id="periodSelect" onchange="refreshAll()">
+    <div class="flex justify-between items-center mb-6 flex-wrap gap-3">
+      <h1 class="text-2xl font-semibold text-white flex items-center gap-2.5">
+        <span class="text-[28px]">&#128202;</span> MCP Center Statistics
+      </h1>
+      <div class="flex items-center gap-3 flex-wrap">
+        <select id="periodSelect" onchange="refreshAll()" class="px-3.5 py-1.5 rounded text-xs border border-slate-700 bg-slate-800 text-slate-200 cursor-pointer transition-colors hover:border-cyan-400 focus:outline-none focus:border-cyan-400">
           <option value="1h">Last 1 Hour</option>
           <option value="6h">Last 6 Hours</option>
           <option value="24h" selected>Last 24 Hours</option>
           <option value="7d">Last 7 Days</option>
           <option value="30d">Last 30 Days</option>
         </select>
-        <div class="auto-refresh">
-          <label>
-            <div class="toggle">
-              <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()">
-              <span class="toggle-slider"></span>
-            </div>
+        <div class="flex items-center gap-1.5 text-xs text-slate-400">
+          <label class="flex items-center gap-1.5 cursor-pointer">
+            <label class="relative inline-block w-9 h-5 cursor-pointer">
+              <input type="checkbox" id="autoRefresh" checked onchange="toggleAutoRefresh()" class="peer sr-only">
+              <span class="absolute inset-0 bg-slate-700 rounded-full transition-colors peer-checked:bg-cyan-700"></span>
+              <span class="absolute top-[3px] left-[3px] w-[14px] h-[14px] bg-slate-400 rounded-full transition-all peer-checked:translate-x-4 peer-checked:bg-white"></span>
+            </label>
             Auto-refresh
           </label>
         </div>
-        <span class="last-updated" id="lastUpdated"></span>
-        <a href="/ui">&larr; Server Management</a>
+        <span class="text-xs text-slate-500" id="lastUpdated"></span>
+        <a href="/ui" class="text-xs text-cyan-400 no-underline px-3.5 py-1.5 border border-slate-700 rounded transition-colors hover:bg-slate-800 hover:border-cyan-400">&larr; Server Management</a>
       </div>
     </div>
 
     <!-- KPI Cards -->
-    <div class="kpi-row">
-      <div class="kpi-card calls">
-        <div class="kpi-label">Total Calls</div>
-        <div class="kpi-value" id="kpiTotalCalls">-</div>
-        <div class="kpi-sub" id="kpiCallsSub"></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 relative overflow-hidden" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Total Calls</div>
+        <div class="text-[32px] font-bold leading-tight text-cyan-400" id="kpiTotalCalls">-</div>
+        <div class="text-xs text-slate-500 mt-1.5" id="kpiCallsSub"></div>
       </div>
-      <div class="kpi-card success">
-        <div class="kpi-label">Success Rate</div>
-        <div class="kpi-value" id="kpiSuccessRate">-</div>
-        <div class="kpi-sub" id="kpiSuccessSub"></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 relative overflow-hidden" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#66bb6a,#2e7d32)"></div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Success Rate</div>
+        <div class="text-[32px] font-bold leading-tight text-green-400" id="kpiSuccessRate">-</div>
+        <div class="text-xs text-slate-500 mt-1.5" id="kpiSuccessSub"></div>
       </div>
-      <div class="kpi-card duration">
-        <div class="kpi-label">Avg Duration</div>
-        <div class="kpi-value" id="kpiAvgDuration">-</div>
-        <div class="kpi-sub" id="kpiDurationSub"></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 relative overflow-hidden" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#ffa726,#ef6c00)"></div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Avg Duration</div>
+        <div class="text-[32px] font-bold leading-tight text-amber-400" id="kpiAvgDuration">-</div>
+        <div class="text-xs text-slate-500 mt-1.5" id="kpiDurationSub"></div>
       </div>
-      <div class="kpi-card tools">
-        <div class="kpi-label">Active Tools / Servers</div>
-        <div class="kpi-value" id="kpiActiveTools">-</div>
-        <div class="kpi-sub" id="kpiToolsSub"></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5 relative overflow-hidden" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <div class="absolute top-0 left-0 right-0 h-[3px]" style="background:linear-gradient(90deg,#ab47bc,#7b1fa2)"></div>
+        <div class="text-xs text-slate-400 uppercase tracking-wider mb-2">Active Tools / Servers</div>
+        <div class="text-[32px] font-bold leading-tight text-purple-400" id="kpiActiveTools">-</div>
+        <div class="text-xs text-slate-500 mt-1.5" id="kpiToolsSub"></div>
       </div>
     </div>
 
     <!-- Charts Row 1 -->
-    <div class="chart-row">
-      <div class="chart-card">
-        <h3>Call Timeline</h3>
-        <div class="chart-container" id="timelineChart"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-4 mb-6">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <h3 class="text-sm text-slate-400 mb-4 font-medium uppercase tracking-wide">Call Timeline</h3>
+        <div class="w-full h-80" id="timelineChart"></div>
       </div>
-      <div class="chart-card">
-        <h3>Tool Usage Ranking</h3>
-        <div class="chart-container" id="toolsChart"></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <h3 class="text-sm text-slate-400 mb-4 font-medium uppercase tracking-wide">Tool Usage Ranking</h3>
+        <div class="w-full h-80" id="toolsChart"></div>
       </div>
     </div>
 
     <!-- Charts Row 2 -->
-    <div class="chart-row-2">
-      <div class="chart-card">
-        <h3>Call Type Distribution</h3>
-        <div class="chart-container" id="typePieChart"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <h3 class="text-sm text-slate-400 mb-4 font-medium uppercase tracking-wide">Call Type Distribution</h3>
+        <div class="w-full h-80" id="typePieChart"></div>
       </div>
-      <div class="chart-card">
-        <h3>Server Load</h3>
-        <div class="chart-container" id="serverChart"></div>
+      <div class="bg-slate-800 border border-slate-700 rounded-lg p-5" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+        <h3 class="text-sm text-slate-400 mb-4 font-medium uppercase tracking-wide">Server Load</h3>
+        <div class="w-full h-80" id="serverChart"></div>
       </div>
     </div>
 
     <!-- Recent Logs Table -->
-    <div class="table-card">
-      <h3>Recent Calls <span id="logCount" style="font-size:12px;color:#5a6b7d;font-weight:400;text-transform:none;letter-spacing:0"></span></h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
+    <div class="bg-slate-800 border border-slate-700 rounded-lg p-5" style="background:linear-gradient(135deg,#1a2a3a 0%,#1e3345 100%)">
+      <h3 class="text-sm text-slate-400 mb-4 font-medium uppercase tracking-wide flex justify-between items-center">
+        Recent Calls <span id="logCount" class="text-xs text-slate-500 font-normal normal-case tracking-normal"></span>
+      </h3>
+      <div class="overflow-x-auto max-h-[420px] overflow-y-auto">
+        <table class="w-full border-collapse text-xs">
+          <thead class="sticky top-0 z-10">
             <tr>
-              <th>Time</th>
-              <th>Type</th>
-              <th>Name</th>
-              <th>Server</th>
-              <th>Status</th>
-              <th>Duration</th>
-              <th>Client IP</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Time</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Type</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Name</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Server</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Status</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Duration</th>
+              <th class="bg-slate-900 text-slate-400 text-left px-3 py-2.5 font-medium uppercase text-[11px] tracking-wide border-b border-slate-700">Client IP</th>
             </tr>
           </thead>
           <tbody id="logTableBody">
-            <tr><td colspan="7" class="empty-msg">Loading...</td></tr>
+            <tr><td colspan="7" class="text-center text-slate-500 py-10 text-sm">Loading...</td></tr>
           </tbody>
         </table>
       </div>
@@ -478,28 +403,27 @@
       document.getElementById('logCount').textContent = data.length > 0 ? '(latest ' + data.length + ')' : '';
 
       if (!data || data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-msg">No call records yet. Start using MCP tools to see activity here.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-slate-500 py-10 text-sm">No call records yet. Start using MCP tools to see activity here.</td></tr>';
         return;
       }
 
       tbody.innerHTML = data.map(row => {
         const time = new Date(row.timestamp).toLocaleString();
-        const statusClass = row.status === 'success' ? 'status-success' : 'status-error';
-        const typeClass = 'type-' + (row.type || 'tool');
+        const statusClass = row.status === 'success' ? 'text-green-400 font-semibold' : 'text-red-400 font-semibold';
         const duration = row.durationMs != null ? row.durationMs + 'ms' : '-';
         const errorInfo = row.errorMsg ? ' title="' + escAttr(row.errorMsg) + '"' : '';
         const name = row.name || '-';
         const server = row.serverName || '-';
         const ip = row.clientIp || '-';
 
-        return '<tr' + errorInfo + '>'
-          + '<td class="mono">' + escHtml(time) + '</td>'
-          + '<td><span class="type-badge ' + typeClass + '">' + escHtml(row.type) + '</span></td>'
-          + '<td class="mono" title="' + escAttr(name) + '">' + escHtml(truncate(name, 40)) + '</td>'
-          + '<td>' + escHtml(server) + '</td>'
-          + '<td class="' + statusClass + '">' + escHtml(row.status) + '</td>'
-          + '<td class="mono">' + duration + '</td>'
-          + '<td class="mono">' + escHtml(ip) + '</td>'
+        return '<tr' + errorInfo + ' class="hover:bg-cyan-900/5">'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 font-mono text-xs text-slate-300">' + escHtml(time) + '</td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800"><span class="inline-block px-2 py-0.5 rounded text-[11px] font-medium ' + (row.type === 'tool' ? 'bg-cyan-900/30 text-cyan-400' : row.type === 'resource' ? 'bg-amber-900/30 text-amber-400' : 'bg-purple-900/30 text-purple-400') + '">' + escHtml(row.type) + '</span></td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 font-mono text-xs text-slate-300" title="' + escAttr(name) + '">' + escHtml(truncate(name, 40)) + '</td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 text-xs text-slate-300">' + escHtml(server) + '</td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 ' + statusClass + '">' + escHtml(row.status) + '</td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 font-mono text-xs text-slate-300">' + duration + '</td>'
+          + '<td class="px-3 py-2.5 border-b border-slate-800 font-mono text-xs text-slate-300">' + escHtml(ip) + '</td>'
           + '</tr>';
       }).join('');
     }
